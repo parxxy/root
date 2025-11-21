@@ -9,7 +9,6 @@ interface SequentialQuestionScreenProps {
   onAnswerSubmitted: (questionId: string, questionText: string, answer: string) => void;
   onDone: () => void;
   onHome: () => void;
-  onRefreshQuestion: () => void;
   onViewThreads: () => void;
 }
 
@@ -19,7 +18,6 @@ export default function SequentialQuestionScreen({
   onAnswerSubmitted,
   onDone,
   onHome,
-  onRefreshQuestion,
   onViewThreads
 }: SequentialQuestionScreenProps) {
   const [currentQuestion, setCurrentQuestion] = useState<string>('');

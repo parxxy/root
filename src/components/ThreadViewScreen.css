@@ -88,11 +88,13 @@
 }
 
 .question-text-thread {
-  font-weight: normal;
+  font-weight: 800;
+  text-align: left;
 }
 
 .answer-text-thread {
   font-style: normal;
+  text-align: right;
 }
 
 .continue-thread-button {

@@ -176,10 +176,6 @@ function App() {
           onAnswerSubmitted={handleAnswerSubmitted}
           onDone={handleQuestionsDone}
           onHome={handleGoBrainDump}
-          onRefreshQuestion={() => {
-            // Force reload question
-            setAnswers([...answers]);
-          }}
           onViewThreads={handleViewThreads}
         />
       )}

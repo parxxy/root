@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { hasApiKey, setApiKey, clearApiKey, getApiKey as getApiKeyFromService } from '../services/aiService';
+import { setApiKey, clearApiKey } from '../services/aiService';
 import './SettingsScreen.css';
 
 interface SettingsScreenProps {
@@ -101,4 +101,3 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
     </div>
   );
 }
-
