@@ -270,6 +270,56 @@ ${qaText}`;
   }
 }
 
+// Generate a very short title for a chat (2–5 words, Title Case)
+export async function generateChatTitle(
+  brainDump: string,
+  path: Path,
+  answers: Answer[]
+): Promise<string> {
+  const client = getClient();
+  if (!client) {
+    throw new Error('Gemini API key not configured.');
+  }
+
+  const qaText = answers
+    .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
+    .join('\n');
+
+  try {
+    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const prompt = `You are a helpful assistant that creates very short titles for chats.
+Rules:
+- Use 2–5 words.
+- No quotation marks.
+- Use Title Case.
+- Summarize the main topic of the conversation.
+- If there isn’t enough info, respond exactly with: New chat.
+
+Brain dump: "${brainDump}"
+Path: "${path.label}" - ${path.description}
+Answers so far:
+${qaText || 'None yet'}
+
+Return only the title text.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const content = response.text();
+    if (!content) throw new Error('No response from AI');
+
+    let title = content.trim();
+    title = title.replace(/^["']|["']$/g, ''); // strip surrounding quotes
+    const words = title.split(/\s+/).filter(Boolean).slice(0, 5);
+    if (words.length < 2) return 'New chat';
+    const toTitleCase = (word: string) =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    return words.map(toTitleCase).join(' ');
+  } catch (error) {
+    console.error('Error generating chat title:', error);
+    return 'New chat';
+  }
+}
+
 // Generate a single follow-up question based on brain dump and previous answers
 export async function generateNextQuestion(
   brainDump: string,

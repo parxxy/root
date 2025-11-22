@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Session, Path } from '../types';
 import { getSessions, upsertSession } from '../utils/storage';
-import { generateInsights } from '../services/aiService';
+import { generateChatTitle } from '../services/aiService';
 import './PastThreadsScreen.css';
 
 interface PastThreadsScreenProps {
@@ -42,11 +42,10 @@ export default function PastThreadsScreen({ onViewThread, onHome }: PastThreadsS
             description: 'A thoughtful exploration of what\'s on your mind'
           };
           try {
-            const insights = await generateInsights(session.brainDump, fallbackPath, session.answers ?? []);
+            const title = await generateChatTitle(session.brainDump, fallbackPath, session.answers ?? []);
             const enriched: Session = {
               ...session,
-              summary: insights.summary,
-              rootConcern: insights.rootConcern
+              summary: title,
             };
             updated[i] = enriched;
             upsertSession(enriched);
