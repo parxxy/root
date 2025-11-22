@@ -49,7 +49,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
   const handleSubmit = () => {
     const trimmed = brainDump.trim();
     if (trimmed.length < 10) {
-      setError('Try writing at least a sentence or two so we have something to explore.');
+      setError('tell me more');
       return;
     }
     setError('');
@@ -81,7 +81,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
             autoFocus
             onKeyDown={(e) => {
               // Allow Enter to submit
-              if (e.key === 'Enter' && brainDump.trim().length >= 10) {
+              if (e.key === 'Enter') {
                 e.preventDefault();
                 handleSubmit();
               }
