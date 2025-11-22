@@ -26,6 +26,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [isWelcomeFading, setIsWelcomeFading] = useState(false);
+
+  const dismissWelcome = () => {
+    setIsWelcomeFading(true);
+    setTimeout(() => {
+      setShowWelcome(false);
+      setIsWelcomeFading(false);
+    }, 400);
+  };
 
   const handleStartExploring = (dump: string) => {
     setBrainDump(dump);
@@ -163,6 +173,39 @@ function App() {
         </div>
       )}
       
+      {showWelcome && (
+        <div
+          className={`welcome-overlay ${isWelcomeFading ? 'fade-out' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Welcome to Root"
+        >
+          <div className="welcome-dialog">
+            <button
+              className="welcome-close"
+              onClick={dismissWelcome}
+              aria-label="Close welcome message"
+            >
+              ×
+            </button>
+            <p className="welcome-greeting">hi! its nice to see you.</p>
+            <p>
+              root can help you dig deeper to help you uncover how you <em><strong>really feel</strong></em> one question at a time.
+            </p>
+            <p>
+              if a question isn&apos;t quite right hit the refresh button to create a new one </p>
+
+            <p>
+              you can visit your past threads by clicking the chat icon &amp; start fresh by going home
+            </p>
+            <p>enjoy :)</p>
+            <button className="welcome-action" onClick={dismissWelcome}>
+              start exploring
+            </button>
+          </div>
+        </div>
+      )}
+      
       {error && (
         <div className="error-banner">
           {error}
@@ -211,7 +254,7 @@ function App() {
         />
       )}
       <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
-        v5.3
+        v5.4
       </button>
       {showAbout && (
         <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">

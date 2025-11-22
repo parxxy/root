@@ -28,6 +28,94 @@
   font-family: var(--font-primary);
 }
 
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 20px;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  backdrop-filter: blur(2px);
+}
+
+.welcome-overlay.fade-out {
+  opacity: 0;
+}
+
+.welcome-dialog {
+  position: relative;
+  background: #f4f4f4;
+  border: 2px solid #111;
+  border-radius: 18px;
+  max-width: 540px;
+  width: 100%;
+  padding: 26px 26px 22px;
+  box-shadow: 12px 12px 0 #000;
+  font-family: var(--font-primary);
+  color: #111;
+  line-height: 1.4;
+}
+
+.welcome-greeting {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+  letter-spacing: 0.01em;
+}
+
+.welcome-dialog p {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.welcome-action {
+  margin-top: 12px;
+  background: #111;
+  color: #f4f4f4;
+  border: 2px solid #111;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 6px 6px 0 #000;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+.welcome-action:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 #000;
+  background: #222;
+}
+
+.welcome-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #efefef;
+  border: 2px solid #111;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  color: #111;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 4px 4px 0 #000;
+}
+
+.welcome-close:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 #000;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
