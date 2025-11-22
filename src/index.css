@@ -15,7 +15,9 @@ html, body {
   height: 100%;
   width: 100%;
   min-height: 100dvh;
-  overflow: hidden; /* lock scrolling */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
