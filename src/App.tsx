@@ -25,6 +25,7 @@ function App() {
   const [viewingSession, setViewingSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
 
   const handleStartExploring = (dump: string) => {
     setBrainDump(dump);
@@ -209,7 +210,22 @@ function App() {
           onTryDifferentPath={handleTryDifferentPath}
         />
       )}
-      <div className="app-version">v5.1</div>
+      <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
+        v5.2
+      </button>
+      {showAbout && (
+        <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">
+          <div className="about-dialog">
+            <div className="about-header">
+              <h2>About Root</h2>
+              <button className="about-close" onClick={() => setShowAbout(false)} aria-label="Close about">×</button>
+            </div>
+            <p>Root helps you dig to the real reason you’re feeling the way you do.<br />There’s always something deeper…and Root helps you find it.</p>
+            <p className="about-note">No user info is saved.</p>
+            <p className="about-footer">Made by Parker.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

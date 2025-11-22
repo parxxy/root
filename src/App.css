@@ -80,14 +80,79 @@
   position: fixed;
   bottom: 8px;
   right: 12px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #444;
   font-family: var(--font-primary);
-  pointer-events: none;
   text-transform: lowercase;
   z-index: 2000;
-  background: rgba(255, 255, 255, 0.75);
-  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px 10px;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+.app-version:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.about-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+}
+
+.about-dialog {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 100%;
+  padding: 20px 24px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  font-family: var(--font-primary);
+  color: #333;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.about-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.about-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+  color: #666;
+}
+
+.about-dialog p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.about-note {
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.about-footer {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  color: #444;
 }
