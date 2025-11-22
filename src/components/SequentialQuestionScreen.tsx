@@ -16,7 +16,6 @@ export default function SequentialQuestionScreen({
   brainDump,
   answers,
   onAnswerSubmitted,
-  onDone,
   onHome,
   onViewThreads
 }: SequentialQuestionScreenProps) {
@@ -24,6 +23,7 @@ export default function SequentialQuestionScreen({
   const [answer, setAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusAnswerInput = () => {
@@ -41,7 +41,8 @@ export default function SequentialQuestionScreen({
     setIsLoading(true);
     try {
       const question = await generateNextQuestion(brainDump, answers);
-      setCurrentQuestion(question);
+      const trimmed = question.trim();
+      setCurrentQuestion(trimmed.length > 0 ? trimmed : 'What would you like to explore deeper?');
     } catch (error) {
       console.error('Error loading question:', error);
       setCurrentQuestion('What would you like to explore deeper?');
@@ -60,6 +61,11 @@ export default function SequentialQuestionScreen({
     return () => clearTimeout(timer);
   }, [currentQuestion, isLoading]);
 
+  useEffect(() => {
+    const touchCapable = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    setIsTouch(touchCapable);
+  }, []);
+
   const handleRefresh = async () => {
     setAnswer('');
     setCurrentQuestion('');
@@ -72,12 +78,13 @@ export default function SequentialQuestionScreen({
   };
 
   const handleSubmit = async () => {
-    if (!answer.trim() || !currentQuestion) return;
+    const effectiveQuestion = currentQuestion.trim() || 'What would you like to explore deeper?';
+    if (!answer.trim() || !effectiveQuestion) return;
     
     setIsSubmitting(true);
     const questionId = `q_${Date.now()}`;
     
-    onAnswerSubmitted(questionId, currentQuestion, answer.trim());
+    onAnswerSubmitted(questionId, effectiveQuestion, answer.trim());
     
     setAnswer('');
     setIsSubmitting(false);
@@ -114,38 +121,7 @@ export default function SequentialQuestionScreen({
     );
   }
 
-  if (!currentQuestion) {
-    return (
-      <div className="question-screen-new" onClick={focusAnswerInput}>
-        <div className="nav-icons-top">
-          <button className="nav-icon" onClick={onHome} title="Home">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-          </button>
-          <button className="nav-icon" onClick={handleRefresh} title="New Question">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-          </button>
-          <button className="nav-icon" onClick={onViewThreads} title="Past Threads">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </button>
-        </div>
-        <div className="question-content-wrapper question-fade" key="no-question">
-          <p className="no-more-questions">Ready to see your insights?</p>
-          <button className="continue-button-new" onClick={onDone}>
-            continue
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const questionText = currentQuestion.trim() || 'What would you like to explore deeper?';
 
   return (
     <div className="question-screen-new" onClick={focusAnswerInput}>
@@ -170,8 +146,8 @@ export default function SequentialQuestionScreen({
         </button>
       </div>
       
-      <div className="question-content-wrapper question-fade" key={currentQuestion}>
-        <h2 className="question-text-new">{currentQuestion}</h2>
+      <div className="question-content-wrapper question-fade" key={questionText}>
+        <h2 className="question-text-new">{questionText}</h2>
         
         <div className="answer-section-new">
           <div className="answer-input-wrapper">
@@ -196,7 +172,7 @@ export default function SequentialQuestionScreen({
                   handleSubmit();
                 }
               }}
-              placeholder="..."
+              placeholder={isTouch ? 'tap to reply' : 'type to reply'}
               autoFocus
               disabled={isSubmitting}
             />
@@ -213,11 +189,6 @@ export default function SequentialQuestionScreen({
           )}
         </div>
         
-        {answers.length >= 3 && (
-          <button className="continue-button-new" onClick={onDone}>
-            continue
-          </button>
-        )}
       </div>
     </div>
   );

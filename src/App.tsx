@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import type { Session, Path, Answer } from './types';
 import { upsertSession } from './utils/storage';
-import { hasApiKey } from './services/aiService';
 import BrainDumpScreen from './components/BrainDumpScreen';
 import SequentialQuestionScreen from './components/SequentialQuestionScreen';
 import InsightSummaryScreen from './components/InsightSummaryScreen';
-import HomeScreen from './components/HomeScreen';
 import PastThreadsScreen from './components/PastThreadsScreen';
 import ThreadViewScreen from './components/ThreadViewScreen';
 import SettingsScreen from './components/SettingsScreen';
 import './App.css';
 
-type Screen = 'home' | 'brainDump' | 'sequentialQuestions' | 'insight' | 'pastThreads' | 'threadView' | 'settings';
+type Screen = 'brainDump' | 'sequentialQuestions' | 'insight' | 'pastThreads' | 'threadView' | 'settings';
 
 const defaultPath: Path = {
   id: 'exploration',
@@ -27,7 +25,6 @@ function App() {
   const [viewingSession, setViewingSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [usingAI, setUsingAI] = useState(hasApiKey());
 
   const handleStartExploring = (dump: string) => {
     setBrainDump(dump);
@@ -77,7 +74,7 @@ function App() {
     if (answers.length === 0) {
       // Still allow saving even with no answers
       setBrainDump('');
-      setScreen('home');
+      setScreen('brainDump');
       return;
     }
     
@@ -106,7 +103,7 @@ function App() {
       setCurrentSession(finalizedSession);
       upsertSession(finalizedSession);
       setBrainDump('');
-      setScreen('home'); // Go back to home instead of insight screen
+      setScreen('brainDump'); // Return to brain dump instead of insight screen
     } catch (err) {
       console.error('Error saving session:', err);
       setError('Failed to save session. Please try again.');
@@ -125,26 +122,15 @@ function App() {
     setError(null);
   };
 
-  const handleViewSession = async (session: Session): Promise<void> => {
-    // View thread instead of insight screen (no summaries unless requested)
-    setViewingSession(session);
-    setScreen('threadView');
-  };
-  
   const handleTryDifferentPath = () => {
     // Restart questions with same brain dump
     setAnswers([]);
     setScreen('sequentialQuestions');
   };
 
-  const handleOpenSettings = () => {
-    setScreen('settings');
-  };
-
   const handleCloseSettings = () => {
     setBrainDump('');
-    setScreen('home');
-    setUsingAI(hasApiKey()); // Update AI status after settings change
+    setScreen('brainDump');
   };
 
   const handleViewThreads = () => {
@@ -182,17 +168,7 @@ function App() {
           <button onClick={() => setError(null)}>×</button>
         </div>
       )}
-      
-      {screen === 'home' && (
-        <HomeScreen 
-          onStartNew={handleStartNew}
-          onViewSession={handleViewSession}
-          onOpenSettings={handleOpenSettings}
-          onViewThreads={handleViewThreads}
-          usingAI={usingAI}
-        />
-      )}
-      
+
       {screen === 'settings' && (
         <SettingsScreen onClose={handleCloseSettings} />
       )}
@@ -233,7 +209,7 @@ function App() {
           onTryDifferentPath={handleTryDifferentPath}
         />
       )}
-      <div className="app-version">v4.4</div>
+      <div className="app-version">v4.5</div>
     </div>
   );
 }
