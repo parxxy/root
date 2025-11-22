@@ -13,6 +13,14 @@ function toSingleSentence(text: string): string {
   return match ? match[0].trim() : withoutWhenYouSay;
 }
 
+function safeJsonParse<T = any>(str: string): T | null {
+  try {
+    return JSON.parse(str) as T;
+  } catch {
+    return null;
+  }
+}
+
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(GEMINI_ENDPOINT, {
     method: 'POST',
@@ -27,8 +35,12 @@ async function callGemini(prompt: string): Promise<string> {
     throw new Error(`Gemini proxy error (${res.status}): ${msg}`);
   }
 
-  const data = await res.json();
-  return (data.text as string | undefined)?.trim() ?? '';
+  try {
+    const data = await res.json();
+    return (data.text as string | undefined)?.trim() ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function hasApiKey(): boolean {
@@ -82,7 +94,16 @@ Identify 3-4 paths they could explore.`;
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = JSON.parse(jsonText);
+  const parsed = safeJsonParse(jsonText);
+  if (!parsed) {
+    return [
+      {
+        id: 'path_fallback',
+        label: 'Explore',
+        description: 'Explore this path'
+      }
+    ];
+  }
   let paths = parsed.paths || parsed;
 
   // Ensure it's an array
@@ -151,7 +172,16 @@ Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions.`;
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = JSON.parse(jsonText);
+  const parsed = safeJsonParse(jsonText);
+  if (!parsed || !parsed.questions) {
+    const fallback = ['What would you like to explore deeper?', 'What feels most important to talk about right now?'];
+    return fallback.map((text, idx) => ({
+      id: `q_fallback_${idx}`,
+      text,
+      layer
+    }));
+  }
+
   const questions = parsed.questions || [];
   return questions.map((q: any) => ({
     id: q.id || `q_${Date.now()}_${Math.random()}`,
@@ -196,11 +226,11 @@ ${qaText}`;
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = JSON.parse(jsonText);
+  const parsed = safeJsonParse(jsonText);
 
   return {
-    summary: parsed.summary || 'You\'ve been exploring layers of what\'s on your mind.',
-    rootConcern: parsed.rootConcern || parsed.root_concern || 'A desire to understand yourself better.'
+    summary: parsed?.summary || 'You\'ve been exploring layers of what\'s on your mind.',
+    rootConcern: parsed?.rootConcern || parsed?.root_concern || 'A desire to understand yourself better.'
   };
 }
 
@@ -260,7 +290,8 @@ Return ONLY the question text, nothing else. No numbering, no "Q:" prefix, no qu
   question = question.replace(/^(Q\d*[:\-.]?\s*|Question\s*\d*[:\-.]?\s*|\d+[.\-)]\s*)/i, '');
   question = question.replace(/^"|"$/g, '');
 
-  return toSingleSentence(question);
+  const cleaned = toSingleSentence(question);
+  return cleaned || 'What would you like to explore deeper?';
 }
 
 // Generate a very short title for a chat (2–5 words, Title Case)
