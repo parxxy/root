@@ -26,6 +26,17 @@ export default function SequentialQuestionScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const focusAnswerInput = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+    input.setSelectionRange(input.value.length, input.value.length);
+  };
+
   const loadNextQuestion = async () => {
     setIsLoading(true);
     try {
@@ -42,6 +53,12 @@ export default function SequentialQuestionScreen({
   useEffect(() => {
     loadNextQuestion();
   }, [answers.length]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const timer = setTimeout(() => focusAnswerInput(), 50);
+    return () => clearTimeout(timer);
+  }, [currentQuestion, isLoading]);
 
   const handleRefresh = async () => {
     setAnswer('');
@@ -64,11 +81,6 @@ export default function SequentialQuestionScreen({
     
     setAnswer('');
     setIsSubmitting(false);
-    
-    // Load next question after a brief delay
-    setTimeout(() => {
-      loadNextQuestion();
-    }, 300);
   };
 
 
@@ -95,7 +107,7 @@ export default function SequentialQuestionScreen({
             </svg>
           </button>
         </div>
-        <div className="question-content-wrapper">
+        <div className="question-content-wrapper question-fade" key="loading">
           <div className="loading-question">thinking...</div>
         </div>
       </div>
@@ -125,7 +137,7 @@ export default function SequentialQuestionScreen({
             </svg>
           </button>
         </div>
-        <div className="question-content-wrapper">
+        <div className="question-content-wrapper question-fade" key="no-question">
           <p className="no-more-questions">Ready to see your insights?</p>
           <button className="continue-button-new" onClick={onDone}>
             continue
@@ -158,7 +170,7 @@ export default function SequentialQuestionScreen({
         </button>
       </div>
       
-      <div className="question-content-wrapper">
+      <div className="question-content-wrapper question-fade" key={currentQuestion}>
         <h2 className="question-text-new">{currentQuestion}</h2>
         
         <div className="answer-section-new">

@@ -14,16 +14,25 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
   const inputRef = useRef<HTMLInputElement>(null);
   const [hasSessions, setHasSessions] = useState(false);
 
+  const focusInput = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+    input.setSelectionRange(input.value.length, input.value.length);
+  };
+
   // Focus input on mount so user can type immediately
   useEffect(() => {
     // Small timeout to ensure DOM is ready
     const timer = setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      focusInput();
     }, 50);
     return () => clearTimeout(timer);
-  }, []);
+  }, [initialText]);
 
   useEffect(() => {
     setHasSessions(getSessions().length > 0);
