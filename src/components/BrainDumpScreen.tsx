@@ -54,7 +54,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
   };
 
   return (
-    <div className="brain-dump-screen-new">
+    <div className="brain-dump-screen-new" onClick={focusInput}>
       {hasSessions && onViewThreads && (
         <button
           className="brain-chat-button"
@@ -85,7 +85,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
             }}
           />
           {brainDump.length === 0 && (
-            <div className="type-to-begin">type to begin</div>
+            <div className="type-to-begin">tap to begin</div>
           )}
         </div>
 

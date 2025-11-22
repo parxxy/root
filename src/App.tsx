@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Session, Path, Answer } from './types';
-import { saveSession } from './utils/storage';
+import { upsertSession } from './utils/storage';
 import { hasApiKey } from './services/aiService';
 import BrainDumpScreen from './components/BrainDumpScreen';
 import SequentialQuestionScreen from './components/SequentialQuestionScreen';
@@ -12,6 +12,12 @@ import SettingsScreen from './components/SettingsScreen';
 import './App.css';
 
 type Screen = 'home' | 'brainDump' | 'sequentialQuestions' | 'insight' | 'pastThreads' | 'threadView' | 'settings';
+
+const defaultPath: Path = {
+  id: 'exploration',
+  label: 'Exploration',
+  description: 'A thoughtful exploration of what\'s on your mind'
+};
 
 function App() {
   const [screen, setScreen] = useState<Screen>('brainDump');
@@ -27,6 +33,16 @@ function App() {
     setBrainDump(dump);
     setAnswers([]);
     setError(null);
+    const session: Session = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+      brainDump: dump,
+      selectedPath: defaultPath,
+      answers: []
+    };
+    const updatedSession = { ...session, brainDump: dump, answers: [], timestamp: Date.now() };
+    setCurrentSession(updatedSession);
+    upsertSession(updatedSession);
     setScreen('sequentialQuestions');
   };
 
@@ -38,7 +54,23 @@ function App() {
       layer: Math.floor(answers.length / 3) + 1 // Approximate layer based on question count
     };
     
-    setAnswers([...answers, newAnswer]);
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
+    const sessionToSave: Session = currentSession ?? {
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+      brainDump,
+      selectedPath: defaultPath,
+      answers: []
+    };
+    const updatedSession: Session = {
+      ...sessionToSave,
+      brainDump,
+      answers: updatedAnswers,
+      timestamp: Date.now()
+    };
+    setCurrentSession(updatedSession);
+    upsertSession(updatedSession);
   };
 
   const handleQuestionsDone = async () => {
@@ -52,25 +84,27 @@ function App() {
     setIsLoading(true);
     try {
       // Create a default path for the session
-      const defaultPath: Path = {
-        id: 'exploration',
-        label: 'Exploration',
-        description: 'A thoughtful exploration of what\'s on your mind'
-      };
-      
-      // Save session without generating insights (per user's request - no advice/summaries unless asked)
-      const session: Session = {
+      const session: Session = currentSession ?? {
         id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Date.now(),
         brainDump,
         selectedPath: defaultPath,
+        answers: []
+      };
+      
+      // Save session without generating insights (per user's request - no advice/summaries unless asked)
+      const finalizedSession: Session = {
+        ...session,
+        timestamp: Date.now(),
+        brainDump,
+        selectedPath: session.selectedPath ?? defaultPath,
         answers,
         summary: '', // Empty - no summary unless requested
         rootConcern: '' // Empty - no summary unless requested
       };
       
-      setCurrentSession(session);
-      saveSession(session);
+      setCurrentSession(finalizedSession);
+      upsertSession(finalizedSession);
       setBrainDump('');
       setScreen('home'); // Go back to home instead of insight screen
     } catch (err) {

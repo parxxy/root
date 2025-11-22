@@ -32,3 +32,13 @@ export function deleteSession(id: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
+export function upsertSession(session: Session): void {
+  const sessions = getSessions();
+  const existingIndex = sessions.findIndex(s => s.id === session.id);
+  if (existingIndex >= 0) {
+    sessions.splice(existingIndex, 1);
+  }
+  sessions.unshift(session);
+  const limited = sessions.slice(0, 50);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(limited));
+}
