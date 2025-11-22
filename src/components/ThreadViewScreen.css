@@ -1,5 +1,5 @@
 .thread-view-screen {
-  min-height: 100vh;
+  min-height: 100dvh;
   width: 100vw;
   background: #f5f5f5;
   padding: 40px 20px;
@@ -118,4 +118,3 @@
   border-color: #999;
   background: #f9f9f9;
 }
-

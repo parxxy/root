@@ -2,9 +2,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: #d0d0d0;
   position: relative;
   margin: 0;
