@@ -13,6 +13,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [hasSessions, setHasSessions] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   const focusInput = () => {
     const input = inputRef.current;
@@ -36,6 +37,8 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
 
   useEffect(() => {
     setHasSessions(getSessions().length > 0);
+    const touchCapable = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    setIsTouch(touchCapable);
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +88,7 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
             }}
           />
           {brainDump.length === 0 && (
-            <div className="type-to-begin">tap to begin</div>
+            <div className="type-to-begin">{isTouch ? 'tap to begin' : 'type to begin'}</div>
           )}
         </div>
 
