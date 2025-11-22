@@ -61,7 +61,6 @@ async function callGemini(prompt: string): Promise<string> {
     throw new Error(`Gemini proxy error (${res.status}): ${msg}`);
   }
 
-  // Try to parse JSON but be tolerant of weird responses
   try {
     const data = await res.json().catch(() => null);
     return (data?.text as string | undefined)?.trim() ?? '';
@@ -93,7 +92,6 @@ export function clearApiKey(): void {
 // LEGACY: PATHS + LAYERED QUESTIONS (OK TO KEEP EVEN IF UNUSED NOW)
 // =====================================================================
 
-// Generate paths from brain dump using AI (legacy helper; safe fallback if used)
 export async function generatePaths(brainDump: string): Promise<Path[]> {
   const prompt = `You are a thoughtful therapist helping someone explore their thoughts.
 
@@ -143,7 +141,6 @@ Respond with the JSON only.`;
     ] as Path[];
   }
 
-  // Support both { paths: [...] } and bare arrays/objects
   let paths: any = Array.isArray(parsed) ? parsed : parsed.paths ?? parsed;
 
   if (!Array.isArray(paths)) {
@@ -160,7 +157,6 @@ Respond with the JSON only.`;
   }));
 }
 
-// Generate context-aware questions for a specific path and layer (legacy)
 export async function generateQuestions(
   brainDump: string,
   path: Path,
@@ -200,6 +196,7 @@ Question rules:
 - Reference specific phrases, situations, or people they mentioned.
 - It is okay for questions to feel emotionally direct and intense, as long as they are gentle and non-judgmental.
 - Avoid advice, reassurance, or solutions.
+- Vary your phrasing and structure; do NOT repeat the same template like "What is underneath that?" or "What is the root of that?".
 
 OUTPUT FORMAT (MUST MATCH EXACTLY):
 Return ONLY valid JSON (no backticks, no explanation):
@@ -250,10 +247,9 @@ Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions that stay with th
 }
 
 // =====================================================================
-// CORE: INSIGHTS + SINGLE-QUESTION FLOW
+// CORE: INSIGHTS
 // =====================================================================
 
-// Generate summary and root concern
 export async function generateInsights(
   brainDump: string,
   path: Path,
@@ -316,11 +312,50 @@ Respond with the JSON only.`;
   };
 }
 
-// Generate a single follow-up question based on brain dump and previous answers
+// =====================================================================
+// "I AM OLIVIA" SECRET MODE
+// =====================================================================
+
+const OLIVIA_TRIGGER = /i\s+am\s+olivia/i;
+
+// Simple, sweet compliments focused on pretty, smart, talented, creative,
+// fashionable, funny, and cute.
+const OLIVIA_COMPLIMENTS: string[] = [
+  'You seem like someone who is incredibly pretty in a soft, effortless way.',
+  'You give off the energy of someone who is genuinely smart and naturally insightful.',
+  'You feel like a person with a lot of talent that shows even in little ways.',
+  'You come across as really creative, like ideas just naturally flow out of you.',
+  'You seem like the type of person who has great style without even trying.',
+  'You feel like someone who is funny in a way that makes people feel comfortable.',
+  'You carry a super cute energy that people notice right away.',
+  'You seem like someone who shines without needing to say a lot.',
+  'You give off the vibe of someone who is bright and warm at the same time.',
+  'You feel like someone whose presence makes things better just by being there.'
+];
+
+function isOliviaMode(brainDump: string, previousAnswers: Answer[]): boolean {
+  if (OLIVIA_TRIGGER.test(brainDump)) return true;
+  return previousAnswers.some(a => OLIVIA_TRIGGER.test(a.answer));
+}
+
+function getOliviaCompliment(previousAnswers: Answer[]): string {
+  const index = previousAnswers.length % OLIVIA_COMPLIMENTS.length;
+  return OLIVIA_COMPLIMENTS[index];
+}
+
+// =====================================================================
+// SINGLE FOLLOW-UP QUESTION (OR OLIVIA MODE)
+// =====================================================================
+
 export async function generateNextQuestion(
   brainDump: string,
   previousAnswers: Answer[]
 ): Promise<string> {
+  // Olivia mode: "I am Olivia" => compliment mode instead of questions
+  if (isOliviaMode(brainDump, previousAnswers)) {
+    return getOliviaCompliment(previousAnswers);
+  }
+
   const qaHistory = previousAnswers
     .map(
       (a, idx) =>
@@ -336,15 +371,16 @@ Global goals:
 - Always move at least as deep as before; never zoom out to generic small talk or very broad questions.
 - Track the emotional thread across the entire conversation: the brain dump AND all previous answers.
 - Use their own words (phrases, images, names) so it feels personal and grounded.
-- Stay with feelings, meanings, fears, and needs rather than giving advice or focusing on practical problem-solving.
+- Stay with feelings, meanings, fears, body sensations, and needs rather than giving advice or focusing on practical problem-solving.
 
 Question style:
 - Ask exactly ONE specific question.
 - It must be exactly ONE sentence.
 - No stacked questions, no lists, no parentheticals.
 - It is okay for the question to feel emotionally direct/intense, but it must be gentle, curious, and non-judgmental.
-- Try to reference something from their most recent 1–3 answers when possible.
-- Often, invite them to notice what feels "underneath" what they just said (for example, "What does that bring up underneath the anger?" or "What are you most afraid that might mean about you?").
+- Vary your phrasing and structure; do NOT repeat the same template like "What is underneath that?" or "What is the root of that?".
+- You can come at depth from different angles: what it reminds them of, what they fear it means about them, how it feels in their body, what part of them is speaking, what they are afraid will happen, what they wish they could say, etc.
+- When helpful, you may offer 2–3 options inside the same sentence (for example, "Does it feel more like X, Y, or Z?"), but this still must be one sentence.
 
 DO NOT:
 - Do not give advice, solutions, or reassurance.
@@ -362,11 +398,11 @@ ${qaHistory || 'None yet.'}
 
 If there are no previous answers yet, ask a first question that:
 - Picks up on the emotionally heaviest or most repeated theme in the brain dump.
-- Asks about what feels most loaded, scary, or tender underneath that theme.
+- Asks about what feels most loaded, scary, or tender underneath that theme, using varied, natural language.
 
 If there ARE previous answers, ask a next question that:
 - Builds directly on what they just shared in their most recent 1–2 answers.
-- Digs into what might be underneath that (feelings, fears, beliefs, needs, or old patterns).
+- Digs into what might be underneath that (feelings, fears, beliefs, needs, body sensations, or old patterns).
 - Does not jump to new topics or step back to shallow ground.
 
 OUTPUT:
@@ -393,10 +429,9 @@ Just the raw question as one sentence.`;
 }
 
 // =====================================================================
-// ONE-SENTENCE CHAT SUMMARY (REPLACES OLD "TITLE CASE 2–5 WORDS" IDEA)
+// ONE-SENTENCE CHAT SUMMARY
 // =====================================================================
 
-// Generate a very short, one-sentence emotional summary of the chat
 export async function generateChatTitle(
   brainDump: string,
   path: Path,
@@ -438,14 +473,12 @@ Return ONLY the single summary sentence (or exactly "New chat." if there is not 
   const content = await callGemini(prompt);
 
   let summary = content.trim();
-  // Remove wrapping quotes if the model adds them
   summary = summary.replace(/^"|"$/g, '');
 
   if (!summary || /^new chat\.?$/i.test(summary)) {
     return 'New chat.';
   }
 
-  // Ensure it's one sentence-ish; trim to something short
   const oneSentence = toSingleSentence(summary);
   return oneSentence || 'New chat.';
 }
