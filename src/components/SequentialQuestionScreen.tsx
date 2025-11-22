@@ -86,7 +86,7 @@ export default function SequentialQuestionScreen({
 
   if (isLoading) {
     return (
-      <div className="question-screen-new">
+      <div className="question-screen-new" onClick={focusAnswerInput}>
         <div className="nav-icons-top">
           <button className="nav-icon" onClick={onHome} title="Home">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -116,7 +116,7 @@ export default function SequentialQuestionScreen({
 
   if (!currentQuestion) {
     return (
-      <div className="question-screen-new">
+      <div className="question-screen-new" onClick={focusAnswerInput}>
         <div className="nav-icons-top">
           <button className="nav-icon" onClick={onHome} title="Home">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -148,7 +148,7 @@ export default function SequentialQuestionScreen({
   }
 
   return (
-    <div className="question-screen-new">
+    <div className="question-screen-new" onClick={focusAnswerInput}>
       <div className="nav-icons-top">
         <button className="nav-icon" onClick={onHome} title="Home">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
