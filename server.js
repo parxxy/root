@@ -70,6 +70,17 @@ app.post('/api/gemini', async (req, res) => {
   }
 });
 
+// --- HEALTHCHECK ROUTES ---
+// Simple "I'm alive" route for uptime pings
+app.get('/', (req, res) => {
+  res.send('OK');
+});
+
+// Optional: specific healthcheck for the Gemini proxy
+app.get('/api/gemini', (req, res) => {
+  res.send('Gemini proxy is alive (use POST for real requests)');
+});
+
 // --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`Gemini proxy listening on port ${PORT}`);
