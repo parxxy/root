@@ -1,6 +1,14 @@
 import type { Path, Question, Answer } from '../types';
 
-const GEMINI_ENDPOINT = '/api/gemini';
+// Decide which backend to call:
+// - In production: your Render proxy
+// - In local dev (optional): your local server.js on port 3001
+const GEMINI_BASE =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : 'https://digtotheroot.onrender.com';
+
+const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
 
 // Keep AI questions to a single sentence
 function toSingleSentence(text: string): string {
