@@ -9,6 +9,17 @@
   position: relative;
 }
 
+@media (max-width: 768px) {
+  .brain-dump-screen-new {
+    align-items: flex-start;
+    padding-top: 60px;
+    padding-bottom: 240px; /* extra space so keyboard doesn't cover input */
+  }
+
+  .input-fade-container {
+    margin-top: 40px;
+  }
+}
 .input-fade-container {
   width: 100%;
   max-width: 400px;

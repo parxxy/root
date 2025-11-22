@@ -211,6 +211,17 @@
 }
 
 @media (max-width: 768px) {
+  .question-screen-new {
+    padding-bottom: 240px; /* space for mobile keyboard */
+  }
+
+  .question-content-wrapper {
+    flex: 0;
+    margin-top: 40px;
+  }
+}
+
+@media (max-width: 768px) {
   .question-content-wrapper {
     padding: 15px;
     gap: 24px;
