@@ -10,15 +10,26 @@ const GEMINI_BASE =
 
 const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
 
+// --- TEXT HELPERS ---
+
 // Keep AI questions to a single sentence
 function toSingleSentence(text: string): string {
+  if (!text) return '';
   const collapsed = text
     .replace(/\s+/g, ' ')
     .replace(/\(.+?\)/g, '') // remove parentheticals for simpler, uninterrupted questions
     .trim();
+
   const withoutWhenYouSay = collapsed.replace(/^when you say[, ]*/i, '');
   const match = withoutWhenYouSay.match(/[^.?!]+[.?!]?/);
   return match ? match[0].trim() : withoutWhenYouSay;
+}
+
+function normalizeQuestion(raw: string): string {
+  const sentence = toSingleSentence(raw);
+  if (!sentence) return 'What would you like to explore deeper?';
+  // Ensure it ends with a question mark
+  return /[?？]$/.test(sentence) ? sentence : `${sentence}?`;
 }
 
 function safeJsonParse<T = any>(str: string): T | null {
@@ -28,6 +39,8 @@ function safeJsonParse<T = any>(str: string): T | null {
     return null;
   }
 }
+
+// --- MODEL CALL ---
 
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(GEMINI_ENDPOINT, {
@@ -39,17 +52,25 @@ async function callGemini(prompt: string): Promise<string> {
   });
 
   if (!res.ok) {
-    const msg = await res.text();
+    let msg = '<no body>';
+    try {
+      msg = await res.text();
+    } catch {
+      // ignore
+    }
     throw new Error(`Gemini proxy error (${res.status}): ${msg}`);
   }
 
+  // Try to parse JSON but be tolerant of weird responses
   try {
-    const data = await res.json();
-    return (data.text as string | undefined)?.trim() ?? '';
+    const data = await res.json().catch(() => null);
+    return (data?.text as string | undefined)?.trim() ?? '';
   } catch {
     return '';
   }
 }
+
+// --- API KEY STUBS (CLIENT NEVER HOLDS KEY) ---
 
 export function hasApiKey(): boolean {
   // Client never holds the key anymore
@@ -68,13 +89,19 @@ export function clearApiKey(): void {
   // no-op; keys are server-side only
 }
 
-// Generate paths from brain dump using AI
-export async function generatePaths(brainDump: string): Promise<Path[]> {
-  const prompt = `You are a thoughtful therapist helping someone explore their thoughts. Based on their brain dump, identify 3-4 key paths or themes they could explore. Each path should be:
-- A clear, empathetic label (2-5 words)
-- A brief description (one sentence) that helps them understand what this path explores
+// =====================================================================
+// LEGACY: PATHS + LAYERED QUESTIONS (OK TO KEEP EVEN IF UNUSED NOW)
+// =====================================================================
 
-Return ONLY a JSON array in this format:
+// Generate paths from brain dump using AI (legacy helper; safe fallback if used)
+export async function generatePaths(brainDump: string): Promise<Path[]> {
+  const prompt = `You are a thoughtful therapist helping someone explore their thoughts.
+
+TASK:
+Given the brain dump below, identify 3–4 key emotional themes they could explore.
+
+OUTPUT FORMAT (MUST MATCH EXACTLY):
+Return ONLY valid JSON, no explanations, no backticks:
 {
   "paths": [
     {
@@ -85,52 +112,55 @@ Return ONLY a JSON array in this format:
   ]
 }
 
-Keep paths focused, specific, and helpful. Avoid generic responses.
+Constraints:
+- "label": 2–5 words, clear and empathetic.
+- "description": exactly one sentence.
+- Focus on specific feelings, fears, or tensions rather than generic labels.
 
-Here's what someone wrote in their brain dump:
-
+Brain dump:
 "${brainDump}"
 
-Identify 3-4 paths they could explore.`;
+Respond with the JSON only.`;
 
-  const content = await callGemini(prompt);
-
+  let content = await callGemini(prompt);
   let jsonText = content.trim();
+
   if (jsonText.includes('```json')) {
     jsonText = jsonText.split('```json')[1].split('```')[0].trim();
   } else if (jsonText.includes('```')) {
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = safeJsonParse(jsonText);
+  const parsed = safeJsonParse<any>(jsonText);
+
   if (!parsed) {
     return [
       {
         id: 'path_fallback',
-        label: 'Explore',
-        description: 'Explore this path'
+        label: 'Explore Feelings',
+        description: 'Explore what feels most alive or intense for you right now.'
       }
-    ];
+    ] as Path[];
   }
-  let paths = parsed.paths || parsed;
 
-  // Ensure it's an array
+  // Support both { paths: [...] } and bare arrays/objects
+  let paths: any = Array.isArray(parsed) ? parsed : parsed.paths ?? parsed;
+
   if (!Array.isArray(paths)) {
-    if (typeof paths === 'object' && paths !== null) {
-      paths = Object.values(paths);
-    } else {
-      paths = [paths];
-    }
+    paths = Object.values(paths);
   }
 
-  return paths.slice(0, 4).map((p: any, idx: number) => ({
-    id: p.id || `path_${idx}`,
-    label: p.label || 'Unknown Path',
-    description: p.description || 'Explore this path'
+  return (paths as any[]).slice(0, 4).map((p, idx) => ({
+    id: String(p.id || `path_${idx}`),
+    label: String(p.label || 'Unknown Path'),
+    description: String(
+      p.description ||
+        'Explore what feels most important or intense for you right now.'
+    )
   }));
 }
 
-// Generate context-aware questions for a specific path and layer
+// Generate context-aware questions for a specific path and layer (legacy)
 export async function generateQuestions(
   brainDump: string,
   path: Path,
@@ -143,60 +173,85 @@ export async function generateQuestions(
     'Root-level questions that explore core beliefs, values, and fundamental concerns'
   ];
 
-  const contextText = previousAnswers.length > 0
-    ? `\n\nPrevious answers in this exploration:\n${previousAnswers.map(a => `Q: ${a.questionText}\nA: ${a.answer}`).join('\n\n')}`
-    : '';
+  const contextText =
+    previousAnswers.length > 0
+      ? `\n\nPrevious answers in this exploration (oldest to newest):\n${previousAnswers
+          .map(
+            (a, i) =>
+              `Q${i + 1}: ${a.questionText}\nA${i + 1}: ${a.answer}`
+          )
+          .join('\n\n')}`
+      : '';
 
-  const prompt = `You are a thoughtful therapist asking insightful questions. Generate 2-4 questions for Layer ${layer} (${layerDescriptions[layer - 1]}).
+  const prompt = `You are a thoughtful therapist asking increasingly deep questions to help someone get from surface emotions to the root emotion underneath (for example, noticing fear underneath anger).
 
-These questions should:
-- Be specific to their situation based on the brain dump and path
-- Be open-ended and thought-provoking
-- Build on previous answers if provided
-- Feel natural and conversational
-- Each question must be ONE sentence only (no multi-sentence or stacked questions)
-- Use simple, uninterrupted sentences (no lists, no parentheticals, no stacked clauses)
+TASK:
+Generate 2–4 questions for Layer ${layer} (${layerDescriptions[layer - 1]}).
 
-Return ONLY a JSON object in this format:
+Overall goals:
+- Always move emotionally sideways or deeper, never back up to generic or surface-level topics.
+- Use their own words from the brain dump and previous answers.
+- Track the emotional thread across the whole conversation, not just the last message.
+
+Question rules:
+- Each question must be ONE sentence only.
+- Ask ONE question per sentence (no stacked questions).
+- Focus on feelings, fears, needs, and meanings under what they said.
+- Reference specific phrases, situations, or people they mentioned.
+- It is okay for questions to feel emotionally direct and intense, as long as they are gentle and non-judgmental.
+- Avoid advice, reassurance, or solutions.
+
+OUTPUT FORMAT (MUST MATCH EXACTLY):
+Return ONLY valid JSON (no backticks, no explanation):
 {
   "questions": [
-    {"id": "q1", "text": "Question text here", "layer": ${layer}},
-    {"id": "q2", "text": "Question text here", "layer": ${layer}}
+    { "id": "q1", "text": "Question text here", "layer": ${layer} },
+    { "id": "q2", "text": "Question text here", "layer": ${layer} }
   ]
 }
 
-Brain dump: "${brainDump}"
+Brain dump:
+"${brainDump}"
 
-Path: "${path.label}" - ${path.description}${contextText}
+Path:
+"${path.label}" - ${path.description}
+${contextText}
 
-Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions.`;
+Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions that stay with the emotional thread and move at least as deep as the previous questions.`;
 
-  const content = await callGemini(prompt);
-
+  let content = await callGemini(prompt);
   let jsonText = content.trim();
+
   if (jsonText.includes('```json')) {
     jsonText = jsonText.split('```json')[1].split('```')[0].trim();
   } else if (jsonText.includes('```')) {
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = safeJsonParse(jsonText);
-  if (!parsed || !parsed.questions) {
-    const fallback = ['What would you like to explore deeper?', 'What feels most important to talk about right now?'];
+  const parsed = safeJsonParse<any>(jsonText);
+  if (!parsed || !parsed.questions || !Array.isArray(parsed.questions)) {
+    const fallback = [
+      'What would you like to explore deeper?',
+      'What feels most important to talk about right now?'
+    ];
     return fallback.map((text, idx) => ({
       id: `q_fallback_${idx}`,
-      text,
+      text: normalizeQuestion(text),
       layer
     }));
   }
 
-  const questions = parsed.questions || [];
-  return questions.map((q: any) => ({
-    id: q.id || `q_${Date.now()}_${Math.random()}`,
-    text: toSingleSentence(q.text || q.question || 'How are you feeling?'),
+  const questions = parsed.questions as any[];
+  return questions.map((q, idx) => ({
+    id: q.id || `q_${Date.now()}_${idx}`,
+    text: normalizeQuestion(q.text || q.question || 'How are you feeling?'),
     layer: q.layer || layer
   }));
 }
+
+// =====================================================================
+// CORE: INSIGHTS + SINGLE-QUESTION FLOW
+// =====================================================================
 
 // Generate summary and root concern
 export async function generateInsights(
@@ -204,41 +259,60 @@ export async function generateInsights(
   path: Path,
   answers: Answer[]
 ): Promise<{ summary: string; rootConcern: string }> {
-  const qaText = answers.map(a => `Q: ${a.questionText}\nA: ${a.answer}`).join('\n\n');
+  const qaText = answers
+    .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
+    .join('\n\n');
 
-  const prompt = `You are a thoughtful therapist providing insights. Based on someone's brain dump and their answers to exploration questions, provide:
-1. A compassionate summary (2-3 sentences) of what they've shared
-2. A possible root concern (1 sentence) - what seems to be at the core
+  const prompt = `You are a thoughtful therapist providing gentle, grounded reflections.
+Someone wrote a brain dump and then answered a series of questions that tried to move from surface emotions toward deeper, root emotions (for example, fear or shame beneath anger).
 
-Be empathetic, insightful, and helpful. Avoid being overly prescriptive.
+TASK:
+Based on what they've shared, provide:
+1. A compassionate summary (2–3 sentences) of what they seem to be going through, focusing on emotions, tensions, and patterns.
+2. A possible root concern (1 sentence) describing what seems to sit underneath everything emotionally (for example "A fear of being abandoned if they are honest" or "A belief that rest means failure").
 
-Return ONLY a JSON object:
+Tone:
+- Warm, validating, and non-judgmental.
+- Curious, not certain; use language like "It seems" or "It might be."
+- Avoid advice or instructions; just help them see what might be underneath.
+
+OUTPUT FORMAT (MUST MATCH EXACTLY):
+Return ONLY valid JSON, no explanations, no backticks:
 {
   "summary": "Your summary here...",
   "rootConcern": "The possible root concern..."
 }
 
-Brain dump: "${brainDump}"
+Brain dump:
+"${brainDump}"
 
-Path explored: "${path.label}"
+Path explored (if any):
+"${path.label}" - ${path.description}
 
-Their journey:
-${qaText}`;
+Their journey (questions and answers, oldest to newest):
+${qaText || 'None yet.'}
 
-  const content = await callGemini(prompt);
+Respond with the JSON only.`;
 
+  let content = await callGemini(prompt);
   let jsonText = content.trim();
+
   if (jsonText.includes('```json')) {
     jsonText = jsonText.split('```json')[1].split('```')[0].trim();
   } else if (jsonText.includes('```')) {
     jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const parsed = safeJsonParse(jsonText);
+  const parsed = safeJsonParse<any>(jsonText);
 
   return {
-    summary: parsed?.summary || 'You\'ve been exploring layers of what\'s on your mind.',
-    rootConcern: parsed?.rootConcern || parsed?.root_concern || 'A desire to understand yourself better.'
+    summary:
+      parsed?.summary ||
+      "You're exploring some of the layers of what you've been feeling and what might be underneath it all.",
+    rootConcern:
+      parsed?.rootConcern ||
+      parsed?.root_concern ||
+      'There seems to be a deeper wish to understand and trust your own feelings.'
   };
 }
 
@@ -247,62 +321,82 @@ export async function generateNextQuestion(
   brainDump: string,
   previousAnswers: Answer[]
 ): Promise<string> {
-  const qaHistory = previousAnswers.map((a, idx) =>
-    `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`
-  ).join('\n\n');
+  const qaHistory = previousAnswers
+    .map(
+      (a, idx) =>
+        `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`
+    )
+    .join('\n\n');
 
-  const prompt = `You are a thoughtful conversationalist helping someone explore their thoughts through questions. Based on their brain dump and the answers they've given, ask ONE follow-up question that digs deeper into their emotions and feelings.
+  const prompt = `You are a thoughtful, gently persistent conversational partner whose job is to help someone move from surface emotions toward the deeper, root emotions underneath (for example, fear or vulnerability beneath anger).
 
-IMPORTANT: Only ask questions. Do NOT provide advice, summaries, interpretations, or suggestions. Your role is to help them explore deeper through questions only.
+You will ask ONLY ONE question at a time, every time.
 
-Guidelines:
-- Ask ONE specific, focused question (not multiple questions)
-- It must be exactly ONE sentence (no multi-sentence responses)
-- Keep it simple and uninterrupted (no parentheticals, no multi-part clauses)
-- Make it feel natural and conversational, like you're really listening
-- Build on what they've already shared - reference specific things they mentioned (names, situations, feelings)
-- Go deeper into the emotions, feelings, or underlying concerns - help them get to the root of how they're feeling
-- Questions should feel supportive, empathetic, and curious - not interrogating
-- When relevant, offer specific options they can choose from (like: "the school pressure, the emotional stuff with Olivia, or the fear about the future? (You can pick one or say 'all of them equally.')")
-- Be specific about what they mentioned - reference their exact words when helpful
-- Dig into what's underneath - the feelings, fears, or concerns behind what they said
-- Format like a real conversation - sometimes offer choices, sometimes ask open questions
+Global goals:
+- Always move at least as deep as before; never zoom out to generic small talk or very broad questions.
+- Track the emotional thread across the entire conversation: the brain dump AND all previous answers.
+- Use their own words (phrases, images, names) so it feels personal and grounded.
+- Stay with feelings, meanings, fears, and needs rather than giving advice or focusing on practical problem-solving.
 
-Example question styles:
-- "If it's feeling like too much to hold, what feels the heaviest right now — the school pressure, the emotional stuff with Olivia, or the fear about the future? (You can pick one or say 'all of them equally.')"
-- "What part of school feels like the biggest threat right now: falling behind, not having energy, or fear of disappointing yourself?"
-- "Does the exhaustion feel more physical (your body is tired) or mental (your mind is tired from thinking)?"
-- "When you think about Olivia, do you feel more anxious about what could happen, or about not knowing what will happen?"
-- "If your future feels like it's 'barreling toward you,' what's the thing you're afraid it might hit you with?"
-- "When you feel paralyzed, what thought is usually running through your mind in that moment?"
+Question style:
+- Ask exactly ONE specific question.
+- It must be exactly ONE sentence.
+- No stacked questions, no lists, no parentheticals.
+- It is okay for the question to feel emotionally direct/intense, but it must be gentle, curious, and non-judgmental.
+- Try to reference something from their most recent 1–3 answers when possible.
+- Often, invite them to notice what feels "underneath" what they just said (for example, "What does that bring up underneath the anger?" or "What are you most afraid that might mean about you?").
 
-${previousAnswers.length === 0
-  ? `This is their initial brain dump - ask your FIRST question to help them explore what's really going on. Focus on understanding what's at the core, what's underneath. Be specific to what they mentioned:
+DO NOT:
+- Do not give advice, solutions, or reassurance.
+- Do not summarize what they said.
+- Do not change the topic to something more general or lighter.
+- Do not ask "How was your day?" or other surface questions.
 
+INPUTS:
+
+Brain dump (their initial free write):
 "${brainDump}"
 
-What's the most important thing you'd want to understand first? Ask about their overwhelm, their concerns, their feelings. Reference specific things they mentioned.`
-  : `Brain dump:
-"${brainDump}"
+Conversation so far (questions and answers, oldest to newest):
+${qaHistory || 'None yet.'}
 
-Their answers so far:
-${qaHistory}
+If there are no previous answers yet, ask a first question that:
+- Picks up on the emotionally heaviest or most repeated theme in the brain dump.
+- Asks about what feels most loaded, scary, or tender underneath that theme.
 
-What's the next question you'd ask to dig deeper? Build on what they've shared. Go into the emotions, fears, or underlying concerns. Reference what they said specifically. Think about what's underneath what they're feeling.`}
+If there ARE previous answers, ask a next question that:
+- Builds directly on what they just shared in their most recent 1–2 answers.
+- Digs into what might be underneath that (feelings, fears, beliefs, needs, or old patterns).
+- Does not jump to new topics or step back to shallow ground.
 
-Return ONLY the question text, nothing else. No numbering, no "Q:" prefix, no quotes around it, just the question itself.`;
+OUTPUT:
+Return ONLY the question sentence itself.
+- No numbering.
+- No "Q:" prefix.
+- No quotes.
+- No markdown.
+Just the raw question as one sentence.`;
 
   const content = await callGemini(prompt);
 
   let question = content.trim();
-  question = question.replace(/^(Q\d*[:\-.]?\s*|Question\s*\d*[:\-.]?\s*|\d+[.\-)]\s*)/i, '');
+  // Strip leading "Q:", "Question 1:", "1.", etc. if the model ignored instructions
+  question = question.replace(
+    /^(Q\d*[:\-.]?\s*|Question\s*\d*[:\-.]?\s*|\d+[.\-)]\s*)/i,
+    ''
+  );
+  // Strip surrounding quotes
   question = question.replace(/^"|"$/g, '');
 
-  const cleaned = toSingleSentence(question);
+  const cleaned = normalizeQuestion(question);
   return cleaned || 'What would you like to explore deeper?';
 }
 
-// Generate a very short title for a chat (2–5 words, Title Case)
+// =====================================================================
+// ONE-SENTENCE CHAT SUMMARY (REPLACES OLD "TITLE CASE 2–5 WORDS" IDEA)
+// =====================================================================
+
+// Generate a very short, one-sentence emotional summary of the chat
 export async function generateChatTitle(
   brainDump: string,
   path: Path,
@@ -312,28 +406,46 @@ export async function generateChatTitle(
     .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
     .join('\n');
 
-  const prompt = `You are a helpful assistant that creates very short titles for chats.
-Rules:
-- Use 2–5 words.
-- No quotation marks.
-- Use Title Case.
-- Summarize the main topic of the conversation.
-- If there isn’t enough info, respond exactly with: New chat.
+  const prompt = `You are summarizing a reflective conversation where someone is trying to get from surface emotions to their root feelings.
 
-Brain dump: "${brainDump}"
-Path: "${path.label}" - ${path.description}
-Answers so far:
-${qaText || 'None yet'}
+TASK:
+Write ONE short, natural-sounding sentence (max ~20 words) that captures the main emotional theme of this conversation.
 
-Return only the title text.`;
+Guidelines:
+- Focus on what they are emotionally wrestling with underneath (fears, needs, tensions), not on small details.
+- Use plain language, like something a human might write as a reflection title.
+- Keep it gentle and non-judgmental.
+- No advice, no instructions, no questions.
+- Avoid quotation marks around the sentence.
+
+If there is not enough information to say anything meaningful, respond EXACTLY with:
+New chat.
+
+CONTEXT:
+
+Brain dump:
+"${brainDump}"
+
+Path (if relevant):
+"${path.label}" - ${path.description}
+
+Conversation so far (questions and answers, oldest to newest):
+${qaText || 'None yet.'}
+
+OUTPUT:
+Return ONLY the single summary sentence (or exactly "New chat." if there is not enough info).`;
 
   const content = await callGemini(prompt);
 
-  let title = content.trim();
-  title = title.replace(/^"|"$/g, '');
-  const words = title.split(/\s+/).filter(Boolean).slice(0, 5);
-  if (words.length < 2) return 'New chat';
-  const toTitleCase = (word: string) =>
-    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  return words.map(toTitleCase).join(' ');
+  let summary = content.trim();
+  // Remove wrapping quotes if the model adds them
+  summary = summary.replace(/^"|"$/g, '');
+
+  if (!summary || /^new chat\.?$/i.test(summary)) {
+    return 'New chat.';
+  }
+
+  // Ensure it's one sentence-ish; trim to something short
+  const oneSentence = toSingleSentence(summary);
+  return oneSentence || 'New chat.';
 }
