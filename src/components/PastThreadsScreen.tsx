@@ -1,5 +1,7 @@
-import type { Session } from '../types';
-import { getSessions } from '../utils/storage';
+import { useEffect, useState } from 'react';
+import type { Session, Path } from '../types';
+import { getSessions, upsertSession } from '../utils/storage';
+import { generateInsights } from '../services/aiService';
 import './PastThreadsScreen.css';
 
 interface PastThreadsScreenProps {
@@ -8,7 +10,7 @@ interface PastThreadsScreenProps {
 }
 
 export default function PastThreadsScreen({ onViewThread, onHome }: PastThreadsScreenProps) {
-  const sessions = getSessions();
+  const [sessions, setSessions] = useState<Session[]>(() => getSessions());
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -26,6 +28,44 @@ export default function PastThreadsScreen({ onViewThread, onHome }: PastThreadsS
     return s[(v - 20) % 10] || s[v] || s[0];
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    const ensureSummaries = async () => {
+      const updated = [...sessions];
+      let changed = false;
+      for (let i = 0; i < updated.length; i++) {
+        const session = updated[i];
+        if (!session.summary || session.summary.trim().length === 0) {
+          const fallbackPath: Path = session.selectedPath ?? {
+            id: 'exploration',
+            label: 'Exploration',
+            description: 'A thoughtful exploration of what\'s on your mind'
+          };
+          try {
+            const insights = await generateInsights(session.brainDump, fallbackPath, session.answers ?? []);
+            const enriched: Session = {
+              ...session,
+              summary: insights.summary,
+              rootConcern: insights.rootConcern
+            };
+            updated[i] = enriched;
+            upsertSession(enriched);
+            changed = true;
+          } catch (err) {
+            console.error('Failed to summarize session', session.id, err);
+          }
+        }
+      }
+      if (!cancelled && changed) {
+        setSessions(updated);
+      }
+    };
+    ensureSummaries();
+    return () => {
+      cancelled = true;
+    };
+  }, []); // run once per mount to enrich stored sessions
+
   return (
     <div className="past-threads-screen">
       <div className="nav-icon-top">
@@ -41,9 +81,11 @@ export default function PastThreadsScreen({ onViewThread, onHome }: PastThreadsS
       
       <div className="threads-grid">
         {sessions.map((session) => {
-          const preview = session.brainDump.length > 30 
-            ? session.brainDump.substring(0, 30) + '...'
+          const previewSource = (session.summary && session.summary.trim()) 
+            ? session.summary.trim()
             : session.brainDump;
+          const previewWords = previewSource.split(/\s+/).slice(0, 3).join(' ');
+          const preview = previewWords || 'recent thread';
           
           return (
             <div

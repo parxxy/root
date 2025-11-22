@@ -233,7 +233,7 @@ function App() {
           onTryDifferentPath={handleTryDifferentPath}
         />
       )}
-      <div className="app-version">v3</div>
+      <div className="app-version">v4</div>
     </div>
   );
 }
