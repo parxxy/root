@@ -1,11 +1,30 @@
 // Simple Express proxy to keep the Gemini API key on the server
 import express from 'express';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// --- CORS SETUP ---
+// While developing you *can* use app.use(cors()) to allow everything,
+// but here's a safer version allowing only your real frontends:
+app.use(
+  cors({
+    origin: [
+      'https://digtotheroot.com',
+      'https://www.digtotheroot.com',
+      // optional: your static site's Render URL if you want
+      'https://root-0ncx.onrender.com',
+    ],
+    methods: ['POST'],
+    allowedHeaders: ['Content-Type'],
+  })
+);
+
+// --- BODY PARSER ---
 app.use(express.json({ limit: '1mb' }));
 
+// --- GEMINI PROXY ROUTE ---
 app.post('/api/gemini', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -42,7 +61,8 @@ app.post('/api/gemini', async (req, res) => {
     }
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+    const text =
+      data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
     res.json({ text });
   } catch (err) {
     console.error('Gemini proxy error', err);
@@ -50,6 +70,7 @@ app.post('/api/gemini', async (req, res) => {
   }
 });
 
+// --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`Gemini proxy listening on port ${PORT}`);
 });
