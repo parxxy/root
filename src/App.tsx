@@ -209,7 +209,7 @@ function App() {
           onTryDifferentPath={handleTryDifferentPath}
         />
       )}
-      <div className="app-version">v4.9</div>
+      <div className="app-version">v5</div>
     </div>
   );
 }

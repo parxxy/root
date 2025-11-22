@@ -1,8 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Path, Question, Answer } from '../types';
 
-// Default API key (can be overridden in settings)
-const DEFAULT_API_KEY = 'AIzaSyAkvYkel0vsJWDtnI4EKUu_4MrQTYj6XW0';
+const GEMINI_ENDPOINT = '/api/gemini';
 
 // Keep AI questions to a single sentence
 function toSingleSentence(text: string): string {
@@ -15,63 +13,44 @@ function toSingleSentence(text: string): string {
   return match ? match[0].trim() : withoutWhenYouSay;
 }
 
-// Get API key from environment or localStorage
-function getApiKeyInternal(): string | null {
-  // Check environment variable first (for build-time)
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (envKey) return envKey;
-  
-  // Check localStorage (for runtime configuration)
-  const storedKey = localStorage.getItem('gemini_api_key');
-  if (storedKey) return storedKey;
-  
-  // Use default key if provided
-  return DEFAULT_API_KEY;
-}
+async function callGemini(prompt: string): Promise<string> {
+  const res = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ prompt })
+  });
 
-let geminiClient: GoogleGenerativeAI | null = null;
-
-function getClient(): GoogleGenerativeAI | null {
-  const apiKey = getApiKeyInternal();
-  if (!apiKey) return null;
-  
-  if (!geminiClient) {
-    geminiClient = new GoogleGenerativeAI(apiKey);
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Gemini proxy error (${res.status}): ${msg}`);
   }
-  
-  return geminiClient;
+
+  const data = await res.json();
+  return (data.text as string | undefined)?.trim() ?? '';
 }
 
 export function hasApiKey(): boolean {
-  return getApiKeyInternal() !== null;
+  // Client never holds the key anymore
+  return false;
 }
 
 export function getApiKey(): string | null {
-  return getApiKeyInternal();
+  return null;
 }
 
-export function setApiKey(key: string): void {
-  localStorage.setItem('gemini_api_key', key);
-  geminiClient = null; // Reset client to use new key
+export function setApiKey(_key: string): void {
+  // no-op; keys are server-side only
 }
 
 export function clearApiKey(): void {
-  localStorage.removeItem('gemini_api_key');
-  geminiClient = null;
+  // no-op; keys are server-side only
 }
 
 // Generate paths from brain dump using AI
 export async function generatePaths(brainDump: string): Promise<Path[]> {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured. Please set your API key in settings.');
-  }
-
-  try {
-    // Use gemini-2.0-flash (free tier, latest model)
-    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    const prompt = `You are a thoughtful therapist helping someone explore their thoughts. Based on their brain dump, identify 3-4 key paths or themes they could explore. Each path should be:
+  const prompt = `You are a thoughtful therapist helping someone explore their thoughts. Based on their brain dump, identify 3-4 key paths or themes they could explore. Each path should be:
 - A clear, empathetic label (2-5 words)
 - A brief description (one sentence) that helps them understand what this path explores
 
@@ -94,42 +73,32 @@ Here's what someone wrote in their brain dump:
 
 Identify 3-4 paths they could explore.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
-    
-    if (!content) throw new Error('No response from AI');
+  const content = await callGemini(prompt);
 
-    // Extract JSON from markdown code blocks if present
-    let jsonText = content.trim();
-    if (jsonText.includes('```json')) {
-      jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-    } else if (jsonText.includes('```')) {
-      jsonText = jsonText.split('```')[1].split('```')[0].trim();
-    }
-
-    const parsed = JSON.parse(jsonText);
-    let paths = parsed.paths || parsed;
-    
-    // Ensure it's an array
-    if (!Array.isArray(paths)) {
-      if (typeof paths === 'object' && paths !== null) {
-        paths = Object.values(paths);
-      } else {
-        paths = [paths];
-      }
-    }
-    
-    // Validate and format paths
-    return paths.slice(0, 4).map((p: any, idx: number) => ({
-      id: p.id || `path_${idx}`,
-      label: p.label || 'Unknown Path',
-      description: p.description || 'Explore this path'
-    }));
-  } catch (error) {
-    console.error('Error generating paths:', error);
-    throw error;
+  let jsonText = content.trim();
+  if (jsonText.includes('```json')) {
+    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+  } else if (jsonText.includes('```')) {
+    jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
+
+  const parsed = JSON.parse(jsonText);
+  let paths = parsed.paths || parsed;
+
+  // Ensure it's an array
+  if (!Array.isArray(paths)) {
+    if (typeof paths === 'object' && paths !== null) {
+      paths = Object.values(paths);
+    } else {
+      paths = [paths];
+    }
+  }
+
+  return paths.slice(0, 4).map((p: any, idx: number) => ({
+    id: p.id || `path_${idx}`,
+    label: p.label || 'Unknown Path',
+    description: p.description || 'Explore this path'
+  }));
 }
 
 // Generate context-aware questions for a specific path and layer
@@ -139,11 +108,6 @@ export async function generateQuestions(
   layer: number,
   previousAnswers: Answer[]
 ): Promise<Question[]> {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured.');
-  }
-
   const layerDescriptions = [
     'Surface-level clarifying questions that help understand the situation better',
     'Emotional and meaning-focused questions that go deeper into feelings and motivations',
@@ -154,10 +118,7 @@ export async function generateQuestions(
     ? `\n\nPrevious answers in this exploration:\n${previousAnswers.map(a => `Q: ${a.questionText}\nA: ${a.answer}`).join('\n\n')}`
     : '';
 
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    const prompt = `You are a thoughtful therapist asking insightful questions. Generate 2-4 questions for Layer ${layer} (${layerDescriptions[layer - 1]}).
+  const prompt = `You are a thoughtful therapist asking insightful questions. Generate 2-4 questions for Layer ${layer} (${layerDescriptions[layer - 1]}).
 
 These questions should:
 - Be specific to their situation based on the brain dump and path
@@ -181,32 +142,22 @@ Path: "${path.label}" - ${path.description}${contextText}
 
 Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
-    
-    if (!content) throw new Error('No response from AI');
+  const content = await callGemini(prompt);
 
-    // Extract JSON from markdown code blocks if present
-    let jsonText = content.trim();
-    if (jsonText.includes('```json')) {
-      jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-    } else if (jsonText.includes('```')) {
-      jsonText = jsonText.split('```')[1].split('```')[0].trim();
-    }
-
-    const parsed = JSON.parse(jsonText);
-    const questions = parsed.questions || [];
-    
-    return questions.map((q: any) => ({
-      id: q.id || `q_${Date.now()}_${Math.random()}`,
-      text: toSingleSentence(q.text || q.question || 'How are you feeling?'),
-      layer: q.layer || layer
-    }));
-  } catch (error) {
-    console.error('Error generating questions:', error);
-    throw error;
+  let jsonText = content.trim();
+  if (jsonText.includes('```json')) {
+    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+  } else if (jsonText.includes('```')) {
+    jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
+
+  const parsed = JSON.parse(jsonText);
+  const questions = parsed.questions || [];
+  return questions.map((q: any) => ({
+    id: q.id || `q_${Date.now()}_${Math.random()}`,
+    text: toSingleSentence(q.text || q.question || 'How are you feeling?'),
+    layer: q.layer || layer
+  }));
 }
 
 // Generate summary and root concern
@@ -215,17 +166,9 @@ export async function generateInsights(
   path: Path,
   answers: Answer[]
 ): Promise<{ summary: string; rootConcern: string }> {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured.');
-  }
-
   const qaText = answers.map(a => `Q: ${a.questionText}\nA: ${a.answer}`).join('\n\n');
 
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    const prompt = `You are a thoughtful therapist providing insights. Based on someone's brain dump and their answers to exploration questions, provide:
+  const prompt = `You are a thoughtful therapist providing insights. Based on someone's brain dump and their answers to exploration questions, provide:
 1. A compassionate summary (2-3 sentences) of what they've shared
 2. A possible root concern (1 sentence) - what seems to be at the core
 
@@ -244,80 +187,21 @@ Path explored: "${path.label}"
 Their journey:
 ${qaText}`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
-    
-    if (!content) throw new Error('No response from AI');
+  const content = await callGemini(prompt);
 
-    // Extract JSON from markdown code blocks if present
-    let jsonText = content.trim();
-    if (jsonText.includes('```json')) {
-      jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-    } else if (jsonText.includes('```')) {
-      jsonText = jsonText.split('```')[1].split('```')[0].trim();
-    }
-
-    const parsed = JSON.parse(jsonText);
-    
-    return {
-      summary: parsed.summary || 'You\'ve been exploring layers of what\'s on your mind.',
-      rootConcern: parsed.rootConcern || parsed.root_concern || 'A desire to understand yourself better.'
-    };
-  } catch (error) {
-    console.error('Error generating insights:', error);
-    throw error;
-  }
-}
-
-// Generate a very short title for a chat (2–5 words, Title Case)
-export async function generateChatTitle(
-  brainDump: string,
-  path: Path,
-  answers: Answer[]
-): Promise<string> {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured.');
+  let jsonText = content.trim();
+  if (jsonText.includes('```json')) {
+    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+  } else if (jsonText.includes('```')) {
+    jsonText = jsonText.split('```')[1].split('```')[0].trim();
   }
 
-  const qaText = answers
-    .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
-    .join('\n');
+  const parsed = JSON.parse(jsonText);
 
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const prompt = `You are a helpful assistant that creates very short titles for chats.
-Rules:
-- Use 2–5 words.
-- No quotation marks.
-- Use Title Case.
-- Summarize the main topic of the conversation.
-- If there isn’t enough info, respond exactly with: New chat.
-
-Brain dump: "${brainDump}"
-Path: "${path.label}" - ${path.description}
-Answers so far:
-${qaText || 'None yet'}
-
-Return only the title text.`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
-    if (!content) throw new Error('No response from AI');
-
-    let title = content.trim();
-    title = title.replace(/^["']|["']$/g, ''); // strip surrounding quotes
-    const words = title.split(/\s+/).filter(Boolean).slice(0, 5);
-    if (words.length < 2) return 'New chat';
-    const toTitleCase = (word: string) =>
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    return words.map(toTitleCase).join(' ');
-  } catch (error) {
-    console.error('Error generating chat title:', error);
-    return 'New chat';
-  }
+  return {
+    summary: parsed.summary || 'You\'ve been exploring layers of what\'s on your mind.',
+    rootConcern: parsed.rootConcern || parsed.root_concern || 'A desire to understand yourself better.'
+  };
 }
 
 // Generate a single follow-up question based on brain dump and previous answers
@@ -325,19 +209,11 @@ export async function generateNextQuestion(
   brainDump: string,
   previousAnswers: Answer[]
 ): Promise<string> {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured.');
-  }
+  const qaHistory = previousAnswers.map((a, idx) =>
+    `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`
+  ).join('\n\n');
 
-  try {
-    const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
-    const qaHistory = previousAnswers.map((a, idx) => 
-      `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`
-    ).join('\n\n');
-
-    const prompt = `You are a thoughtful conversationalist helping someone explore their thoughts through questions. Based on their brain dump and the answers they've given, ask ONE follow-up question that digs deeper into their emotions and feelings.
+  const prompt = `You are a thoughtful conversationalist helping someone explore their thoughts through questions. Based on their brain dump and the answers they've given, ask ONE follow-up question that digs deeper into their emotions and feelings.
 
 IMPORTANT: Only ask questions. Do NOT provide advice, summaries, interpretations, or suggestions. Your role is to help them explore deeper through questions only.
 
@@ -355,7 +231,6 @@ Guidelines:
 - Format like a real conversation - sometimes offer choices, sometimes ask open questions
 
 Example question styles:
-// Avoid starting with "When you say" to keep questions direct
 - "If it's feeling like too much to hold, what feels the heaviest right now — the school pressure, the emotional stuff with Olivia, or the fear about the future? (You can pick one or say 'all of them equally.')"
 - "What part of school feels like the biggest threat right now: falling behind, not having energy, or fear of disappointing yourself?"
 - "Does the exhaustion feel more physical (your body is tired) or mental (your mind is tired from thinking)?"
@@ -363,7 +238,7 @@ Example question styles:
 - "If your future feels like it's 'barreling toward you,' what's the thing you're afraid it might hit you with?"
 - "When you feel paralyzed, what thought is usually running through your mind in that moment?"
 
-${previousAnswers.length === 0 
+${previousAnswers.length === 0
   ? `This is their initial brain dump - ask your FIRST question to help them explore what's really going on. Focus on understanding what's at the core, what's underneath. Be specific to what they mentioned:
 
 "${brainDump}"
@@ -379,22 +254,47 @@ What's the next question you'd ask to dig deeper? Build on what they've shared. 
 
 Return ONLY the question text, nothing else. No numbering, no "Q:" prefix, no quotes around it, just the question itself.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
-    
-    if (!content) throw new Error('No response from AI');
+  const content = await callGemini(prompt);
 
-    // Clean up the response - remove any numbering or prefixes
-    let question = content.trim();
-    // Remove common prefixes like "Q:", "Question:", numbers, etc.
-    question = question.replace(/^(Q\d*[:\-.]?\s*|Question\s*\d*[:\-.]?\s*|\d+[.\-)]\s*)/i, '');
-    // Remove quotes if wrapped
-    question = question.replace(/^["']|["']$/g, '');
-    
-    return toSingleSentence(question);
-  } catch (error) {
-    console.error('Error generating question:', error);
-    throw error;
-  }
+  let question = content.trim();
+  question = question.replace(/^(Q\d*[:\-.]?\s*|Question\s*\d*[:\-.]?\s*|\d+[.\-)]\s*)/i, '');
+  question = question.replace(/^"|"$/g, '');
+
+  return toSingleSentence(question);
+}
+
+// Generate a very short title for a chat (2–5 words, Title Case)
+export async function generateChatTitle(
+  brainDump: string,
+  path: Path,
+  answers: Answer[]
+): Promise<string> {
+  const qaText = answers
+    .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
+    .join('\n');
+
+  const prompt = `You are a helpful assistant that creates very short titles for chats.
+Rules:
+- Use 2–5 words.
+- No quotation marks.
+- Use Title Case.
+- Summarize the main topic of the conversation.
+- If there isn’t enough info, respond exactly with: New chat.
+
+Brain dump: "${brainDump}"
+Path: "${path.label}" - ${path.description}
+Answers so far:
+${qaText || 'None yet'}
+
+Return only the title text.`;
+
+  const content = await callGemini(prompt);
+
+  let title = content.trim();
+  title = title.replace(/^"|"$/g, '');
+  const words = title.split(/\s+/).filter(Boolean).slice(0, 5);
+  if (words.length < 2) return 'New chat';
+  const toTitleCase = (word: string) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  return words.map(toTitleCase).join(' ');
 }

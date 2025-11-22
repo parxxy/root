@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "express": "^4.21.2",
     "openai": "^6.9.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
