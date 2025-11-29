@@ -300,6 +300,12 @@ export async function generateNextQuestion(
   const mode =
     turnCount < 3 ? 'UNDERSTANDING_MODE' : 'DEPTH_MODE';
 
+  // Debug helper: let the user press "q" to see which mode the AI is in
+  const lastAnswer = previousAnswers[previousAnswers.length - 1];
+  if (lastAnswer && lastAnswer.answer.trim().toLowerCase() === 'q') {
+    return `MODE: ${mode}`;
+  }
+
   const prompt = `You are a thoughtful, emotionally intelligent conversational partner whose primary goal is to help a user explore their inner world and gradually reach the deeper, root emotions beneath what they are describing.
 
 You work in TWO MODES:
