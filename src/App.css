@@ -84,6 +84,7 @@
   cursor: pointer;
   box-shadow: 6px 6px 0 #000;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  float: right;
 }
 
 .welcome-action:hover {

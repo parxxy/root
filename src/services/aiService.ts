@@ -1,4 +1,4 @@
-import type { Path, Question, Answer } from '../types';
+import type { Path, Answer } from '../types';
 
 // Decide which backend to call:
 // - In production: your Render proxy
@@ -12,12 +12,12 @@ const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
 
 // --- TEXT HELPERS ---
 
-// Keep AI questions to a single sentence
+// Keep text to a single sentence
 function toSingleSentence(text: string): string {
   if (!text) return '';
   const collapsed = text
     .replace(/\s+/g, ' ')
-    .replace(/\(.+?\)/g, '') // remove parentheticals for simpler, uninterrupted questions
+    .replace(/\(.+?\)/g, '') // remove parentheticals for simpler, uninterrupted sentences
     .trim();
 
   const withoutWhenYouSay = collapsed.replace(/^when you say[, ]*/i, '');
@@ -89,165 +89,7 @@ export function clearApiKey(): void {
 }
 
 // =====================================================================
-// LEGACY: PATHS + LAYERED QUESTIONS (OK TO KEEP EVEN IF UNUSED NOW)
-// =====================================================================
-
-export async function generatePaths(brainDump: string): Promise<Path[]> {
-  const prompt = `You are a thoughtful therapist helping someone explore their thoughts.
-
-TASK:
-Given the brain dump below, identify 3–4 key emotional themes they could explore.
-
-OUTPUT FORMAT (MUST MATCH EXACTLY):
-Return ONLY valid JSON, no explanations, no backticks:
-{
-  "paths": [
-    {
-      "id": "unique-id",
-      "label": "Path Name",
-      "description": "Brief description of what this path explores"
-    }
-  ]
-}
-
-Constraints:
-- "label": 2–5 words, clear and empathetic.
-- "description": exactly one sentence.
-- Focus on specific feelings, fears, or tensions rather than generic labels.
-
-Brain dump:
-"${brainDump}"
-
-Respond with the JSON only.`;
-
-  let content = await callGemini(prompt);
-  let jsonText = content.trim();
-
-  if (jsonText.includes('```json')) {
-    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-  } else if (jsonText.includes('```')) {
-    jsonText = jsonText.split('```')[1].split('```')[0].trim();
-  }
-
-  const parsed = safeJsonParse<any>(jsonText);
-
-  if (!parsed) {
-    return [
-      {
-        id: 'path_fallback',
-        label: 'Explore Feelings',
-        description: 'Explore what feels most alive or intense for you right now.'
-      }
-    ] as Path[];
-  }
-
-  let paths: any = Array.isArray(parsed) ? parsed : parsed.paths ?? parsed;
-
-  if (!Array.isArray(paths)) {
-    paths = Object.values(paths);
-  }
-
-  return (paths as any[]).slice(0, 4).map((p, idx) => ({
-    id: String(p.id || `path_${idx}`),
-    label: String(p.label || 'Unknown Path'),
-    description: String(
-      p.description ||
-        'Explore what feels most important or intense for you right now.'
-    )
-  }));
-}
-
-export async function generateQuestions(
-  brainDump: string,
-  path: Path,
-  layer: number,
-  previousAnswers: Answer[]
-): Promise<Question[]> {
-  const layerDescriptions = [
-    'Surface-level clarifying questions that help understand the situation better',
-    'Emotional and meaning-focused questions that go deeper into feelings and motivations',
-    'Root-level questions that explore core beliefs, values, and fundamental concerns'
-  ];
-
-  const contextText =
-    previousAnswers.length > 0
-      ? `\n\nPrevious answers in this exploration (oldest to newest):\n${previousAnswers
-          .map(
-            (a, i) =>
-              `Q${i + 1}: ${a.questionText}\nA${i + 1}: ${a.answer}`
-          )
-          .join('\n\n')}`
-      : '';
-
-  const prompt = `You are a thoughtful therapist asking increasingly deep questions to help someone get from surface emotions to the root emotion underneath (for example, noticing fear underneath anger).
-
-TASK:
-Generate 2–4 questions for Layer ${layer} (${layerDescriptions[layer - 1]}).
-
-Overall goals:
-- Always move emotionally sideways or deeper, never back up to generic or surface-level topics.
-- Use their own words from the brain dump and previous answers.
-- Track the emotional thread across the whole conversation, not just the last message.
-
-Question rules:
-- Each question must be ONE sentence only.
-- Ask ONE question per sentence (no stacked questions).
-- Focus on feelings, fears, needs, and meanings under what they said.
-- Reference specific phrases, situations, or people they mentioned.
-- It is okay for questions to feel emotionally direct and intense, as long as they are gentle and non-judgmental.
-- Avoid advice, reassurance, or solutions.
-- Vary your phrasing and structure; do NOT repeat the same template like "What is underneath that?" or "What is the root of that?".
-
-OUTPUT FORMAT (MUST MATCH EXACTLY):
-Return ONLY valid JSON (no backticks, no explanation):
-{
-  "questions": [
-    { "id": "q1", "text": "Question text here", "layer": ${layer} },
-    { "id": "q2", "text": "Question text here", "layer": ${layer} }
-  ]
-}
-
-Brain dump:
-"${brainDump}"
-
-Path:
-"${path.label}" - ${path.description}
-${contextText}
-
-Generate ${layer === 3 ? '3' : '2-3'} Layer ${layer} questions that stay with the emotional thread and move at least as deep as the previous questions.`;
-
-  let content = await callGemini(prompt);
-  let jsonText = content.trim();
-
-  if (jsonText.includes('```json')) {
-    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-  } else if (jsonText.includes('```')) {
-    jsonText = jsonText.split('```')[1].split('```')[0].trim();
-  }
-
-  const parsed = safeJsonParse<any>(jsonText);
-  if (!parsed || !parsed.questions || !Array.isArray(parsed.questions)) {
-    const fallback = [
-      'What would you like to explore deeper?',
-      'What feels most important to talk about right now?'
-    ];
-    return fallback.map((text, idx) => ({
-      id: `q_fallback_${idx}`,
-      text: normalizeQuestion(text),
-      layer
-    }));
-  }
-
-  const questions = parsed.questions as any[];
-  return questions.map((q, idx) => ({
-    id: q.id || `q_${Date.now()}_${idx}`,
-    text: normalizeQuestion(q.text || q.question || 'How are you feeling?'),
-    layer: q.layer || layer
-  }));
-}
-
-// =====================================================================
-// CORE: INSIGHTS
+// CORE: INSIGHTS (OPTIONAL BUT USEFUL)
 // =====================================================================
 
 export async function generateInsights(
@@ -318,33 +160,44 @@ Respond with the JSON only.`;
 
 const OLIVIA_TRIGGER = /i\s+am\s+olivia/i;
 
-// Simple, sweet compliments focused on pretty, smart, talented, creative,
-// fashionable, funny, and cute.
-const OLIVIA_COMPLIMENTS: string[] = [
-  'You seem like someone who is incredibly pretty in a soft, effortless way.',
-  'You give off the energy of someone who is genuinely smart and naturally insightful.',
-  'You feel like a person with a lot of talent that shows even in little ways.',
-  'You come across as really creative, like ideas just naturally flow out of you.',
-  'You seem like the type of person who has great style without even trying.',
-  'You feel like someone who is funny in a way that makes people feel comfortable.',
-  'You carry a super cute energy that people notice right away.',
-  'You seem like someone who shines without needing to say a lot.',
-  'You give off the vibe of someone who is bright and warm at the same time.',
-  'You feel like someone whose presence makes things better just by being there.'
-];
-
 function isOliviaMode(brainDump: string, previousAnswers: Answer[]): boolean {
   if (OLIVIA_TRIGGER.test(brainDump)) return true;
   return previousAnswers.some(a => OLIVIA_TRIGGER.test(a.answer));
 }
 
-function getOliviaCompliment(previousAnswers: Answer[]): string {
-  const index = previousAnswers.length % OLIVIA_COMPLIMENTS.length;
-  return OLIVIA_COMPLIMENTS[index];
+async function generateOliviaCompliment(): Promise<string> {
+  const prompt = `You are writing a sweet, simple compliment to a person named Olivia.
+
+TASK:
+Write exactly ONE sentence that compliments Olivia.
+Each time you are called, you must create a NEW compliment and avoid repeating the same wording you have used before.
+
+Content requirements:
+- Focus on how pretty, smart, talented, creative, fashionable, funny, and cute she is.
+- In each sentence, naturally highlight 2–3 of these qualities.
+- Use warm, genuine, human-sounding language.
+- Keep it short and simple, not poetic or over the top.
+
+OUTPUT:
+Return ONLY the compliment sentence, with no quotes, no extra text, no markdown.`;
+
+  const content = await callGemini(prompt);
+
+  let compliment = content.trim();
+  // Strip quotes if model adds them
+  compliment = compliment.replace(/^"|"$/g, '');
+  const oneSentence = toSingleSentence(compliment);
+
+  if (!oneSentence) {
+    // Very simple fallback just in case the model fails
+    return 'You seem like someone who is really pretty, naturally smart, and effortlessly cute.';
+  }
+
+  return oneSentence;
 }
 
 // =====================================================================
-// SINGLE FOLLOW-UP QUESTION (OR OLIVIA MODE)
+// SINGLE FOLLOW-UP QUESTION (WITH TWO-PHASE DEPTH LOGIC)
 // =====================================================================
 
 export async function generateNextQuestion(
@@ -353,7 +206,7 @@ export async function generateNextQuestion(
 ): Promise<string> {
   // Olivia mode: "I am Olivia" => compliment mode instead of questions
   if (isOliviaMode(brainDump, previousAnswers)) {
-    return getOliviaCompliment(previousAnswers);
+    return await generateOliviaCompliment();
   }
 
   const qaHistory = previousAnswers
@@ -363,30 +216,59 @@ export async function generateNextQuestion(
     )
     .join('\n\n');
 
-  const prompt = `You are a thoughtful, gently persistent conversational partner whose job is to help someone move from surface emotions toward the deeper, root emotions underneath (for example, fear or vulnerability beneath anger).
+  const turnCount = previousAnswers.length;
+  const mode =
+    turnCount < 3 ? 'UNDERSTANDING_MODE' : 'DEPTH_MODE';
 
-You will ask ONLY ONE question at a time, every time.
+  const prompt = `You are a thoughtful, emotionally intelligent conversational partner whose primary goal is to help a user explore their inner world and gradually reach the deeper, root emotions beneath what they are describing.
 
-Global goals:
-- Always move at least as deep as before; never zoom out to generic small talk or very broad questions.
-- Track the emotional thread across the entire conversation: the brain dump AND all previous answers.
-- Use their own words (phrases, images, names) so it feels personal and grounded.
-- Stay with feelings, meanings, fears, body sensations, and needs rather than giving advice or focusing on practical problem-solving.
+You work in TWO MODES:
+1) UNDERSTANDING_MODE: gather enough context to truly understand what is happening.
+2) DEPTH_MODE: gently dig into the emotional roots (beliefs, fears, patterns, meanings, tender feelings).
 
-Question style:
-- Ask exactly ONE specific question.
-- It must be exactly ONE sentence.
+The conversation is currently in: ${mode}.
+
+--------------------------------
+UNDERSTANDING_MODE BEHAVIOR (early in the conversation):
+- Focus on clarifying what is actually happening in their life.
+- Map out the situation, relationships, pressures, and emotional landscape.
+- Ask about concrete details that matter emotionally: who, when, where, how it has been affecting them.
+- Explore how this has been showing up over time (patterns, recent changes, what keeps sticking in their mind).
+- Stay curious and specific, but do NOT try to go extremely deep yet.
+
+Examples of good UNDERSTANDING_MODE questions:
+- "When you say work has been rough, what has the past week actually looked like for you there?"
+- "What part of that situation hits you the strongest right now?"
+- "Whose reactions or expectations feel most intense in this for you?"
+- "When this comes up, where does your mind keep going back to?"
+- "Has this been building for a while, or did something specific tip it over?"
+
+--------------------------------
+DEPTH_MODE BEHAVIOR (after you understand the picture):
+- Now shift toward the root: what this means to them, what it touches in them, what it threatens or awakens.
+- Explore beliefs, fears, old patterns, identity, shame, longing, vulnerability.
+- Ask questions that help them notice what is underneath the main emotion (for example, fear beneath anger, grief beneath numbness).
+- You can reference earlier parts of the conversation, not just the most recent answer.
+- Your questions should feel like they are holding their words with care and curiosity, not interrogating them.
+
+Examples of good DEPTH_MODE questions:
+- "When you picture that moment, what part of you feels most exposed or vulnerable?"
+- "What do you fear this situation might be saying about you as a person?"
+- "Does this remind you of an older feeling or pattern from another part of your life?"
+- "When that sadness shows up, what do you feel it is trying to protect or say?"
+- "What feels most threatened in you when this happens?"
+
+--------------------------------
+GENERAL RULES FOR ALL QUESTIONS:
+- Ask EXACTLY ONE question.
+- It must be ONE sentence only.
 - No stacked questions, no lists, no parentheticals.
-- It is okay for the question to feel emotionally direct/intense, but it must be gentle, curious, and non-judgmental.
-- Vary your phrasing and structure; do NOT repeat the same template like "What is underneath that?" or "What is the root of that?".
-- You can come at depth from different angles: what it reminds them of, what they fear it means about them, how it feels in their body, what part of them is speaking, what they are afraid will happen, what they wish they could say, etc.
-- When helpful, you may offer 2–3 options inside the same sentence (for example, "Does it feel more like X, Y, or Z?"), but this still must be one sentence.
-
-DO NOT:
-- Do not give advice, solutions, or reassurance.
-- Do not summarize what they said.
-- Do not change the topic to something more general or lighter.
-- Do not ask "How was your day?" or other surface questions.
+- Never ask generic therapy clichés like "How does that make you feel?" on their own.
+- Avoid shallow reformulations like "What does that feel like?" unless it is anchored to something very specific they said.
+- Every question must be grounded in the FULL context: the brain dump AND the whole history of answers, not just the last one.
+- Use their own words when possible (phrases, names, images they used).
+- Never give advice, solutions, or reassurance.
+- Do not summarize or interpret; just ask.
 
 INPUTS:
 
@@ -396,14 +278,17 @@ Brain dump (their initial free write):
 Conversation so far (questions and answers, oldest to newest):
 ${qaHistory || 'None yet.'}
 
-If there are no previous answers yet, ask a first question that:
-- Picks up on the emotionally heaviest or most repeated theme in the brain dump.
-- Asks about what feels most loaded, scary, or tender underneath that theme, using varied, natural language.
+MODE-SPECIFIC INSTRUCTIONS:
 
-If there ARE previous answers, ask a next question that:
-- Builds directly on what they just shared in their most recent 1–2 answers.
-- Digs into what might be underneath that (feelings, fears, beliefs, needs, body sensations, or old patterns).
-- Does not jump to new topics or step back to shallow ground.
+If the current mode is UNDERSTANDING_MODE:
+- Ask a question that helps you better understand the situation and emotional landscape.
+- Focus on clarifying what is happening, who is involved, why it matters, and how it has been affecting them.
+- You are gathering puzzle pieces before trying to name the root.
+
+If the current mode is DEPTH_MODE:
+- Ask a question that goes at least as deep as the previous ones, not shallower.
+- Build on the emotional thread from their most recent 1–3 answers.
+- Aim your question toward the deeper meanings, fears, beliefs, or vulnerable feelings underneath what they described.
 
 OUTPUT:
 Return ONLY the question sentence itself.
@@ -429,7 +314,7 @@ Just the raw question as one sentence.`;
 }
 
 // =====================================================================
-// ONE-SENTENCE CHAT SUMMARY
+// ONE-SENTENCE CHAT SUMMARY (OPTIONAL)
 // =====================================================================
 
 export async function generateChatTitle(

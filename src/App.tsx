@@ -193,7 +193,7 @@ function App() {
               root can help you dig deeper to help you uncover how you <em><strong>really feel</strong></em> one question at a time.
             </p>
             <p>
-              if a question isn&apos;t quite right hit the refresh button to create a new one </p>
+              if a question isn&apos;t quite right, hit the refresh button to create a new one </p>
 
             <p>
               you can visit your past threads by clicking the chat icon &amp; start fresh by going home
@@ -254,7 +254,7 @@ function App() {
         />
       )}
       <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
-        v5.4
+        v5.5
       </button>
       {showAbout && (
         <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">
