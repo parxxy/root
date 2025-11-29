@@ -282,7 +282,8 @@ Return ONLY the compliment sentence, with no quotes, no extra text, no markdown.
 
 export async function generateNextQuestion(
   brainDump: string,
-  previousAnswers: Answer[]
+  previousAnswers: Answer[],
+  rootMode = false
 ): Promise<string> {
   // Olivia mode: "I am Olivia" => compliment mode instead of questions
   if (isOliviaMode(brainDump, previousAnswers)) {
@@ -297,8 +298,11 @@ export async function generateNextQuestion(
     .join('\n\n');
 
   const turnCount = previousAnswers.length;
-  const mode =
-    turnCount < 3 ? 'UNDERSTANDING_MODE' : 'DEPTH_MODE';
+  const mode = rootMode
+    ? 'ROOT_CHALLENGE_MODE'
+    : turnCount < 3
+      ? 'UNDERSTANDING_MODE'
+      : 'DEPTH_MODE';
 
   // Debug helper: let the user press "q" to see which mode the AI is in
   const lastAnswer = previousAnswers[previousAnswers.length - 1];
@@ -308,9 +312,10 @@ export async function generateNextQuestion(
 
   const prompt = `You are a thoughtful, emotionally intelligent conversational partner whose primary goal is to help a user explore their inner world and gradually reach the deeper, root emotions beneath what they are describing.
 
-You work in TWO MODES:
+You work in THREE MODES:
 1) UNDERSTANDING_MODE: gather enough context to truly understand what is happening.
 2) DEPTH_MODE: gently dig into the emotional roots (beliefs, fears, patterns, meanings, tender feelings).
+3) ROOT_CHALLENGE_MODE: after they say they've hit a root, compassionately test and poke their underlying beliefs while still offering warmth.
 
 The conversation is currently in: ${mode}.
 
@@ -345,6 +350,14 @@ Examples of good DEPTH_MODE questions:
 - "What feels most threatened in you when this happens?"
 
 --------------------------------
+ROOT_CHALLENGE_MODE BEHAVIOR (after they say they've hit a root):
+- Gently challenge the belief or assumption they're holding; poke at its certainty without being harsh.
+- Ask how they know, what evidence conflicts, and what it costs them to hold that belief.
+- Balance challenge with compassion: pair each probing angle with grounding care.
+- Invite them to imagine alternatives, exceptions, or softer interpretations of their belief.
+- Keep the tone warm but willing to question: curious, brave, and kind.
+
+--------------------------------
 GENERAL RULES FOR ALL QUESTIONS:
 - Ask EXACTLY ONE question.
 - It must be ONE sentence only.
@@ -375,6 +388,11 @@ If the current mode is DEPTH_MODE:
 - Ask a question that goes at least as deep as the previous ones, not shallower.
 - Build on the emotional thread from their most recent 1–3 answers.
 - Aim your question toward the deeper meanings, fears, beliefs, or vulnerable feelings underneath what they described.
+
+If the current mode is ROOT_CHALLENGE_MODE:
+- Aim directly at the core belief they've surfaced.
+- Challenge it with curiosity (e.g., what if it were wrong, what does it cost, where did it start, where is it kinder?).
+- Keep it warm and human: nudge and comfort in the same breath.
 
 OUTPUT:
 Return ONLY the question sentence itself.

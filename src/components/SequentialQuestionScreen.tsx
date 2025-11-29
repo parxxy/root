@@ -24,6 +24,7 @@ export default function SequentialQuestionScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
+  const [rootMode, setRootMode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusAnswerInput = () => {
@@ -37,10 +38,14 @@ export default function SequentialQuestionScreen({
     input.setSelectionRange(input.value.length, input.value.length);
   };
 
-  const loadNextQuestion = async () => {
+  const loadNextQuestion = async (forceRootMode?: boolean) => {
     setIsLoading(true);
     try {
-      const question = await generateNextQuestion(brainDump, answers);
+      const question = await generateNextQuestion(
+        brainDump,
+        answers,
+        forceRootMode ?? rootMode
+      );
       const trimmed = question.trim();
       setCurrentQuestion(trimmed.length > 0 ? trimmed : 'What would you like to explore deeper?');
     } catch (error) {
@@ -75,6 +80,12 @@ export default function SequentialQuestionScreen({
       inputRef.current.scrollLeft = 0;
     }
     await loadNextQuestion();
+  };
+
+  const handleRootHit = async () => {
+    if (rootMode) return;
+    setRootMode(true);
+    await loadNextQuestion(true);
   };
 
   const handleSubmit = async () => {
@@ -185,6 +196,18 @@ export default function SequentialQuestionScreen({
               disabled={isSubmitting}
             >
               continue
+            </button>
+          )}
+          
+          {answers.length >= 3 && (
+            <button
+              type="button"
+              className="root-mode-button"
+              onClick={handleRootHit}
+              disabled={rootMode}
+              aria-pressed={rootMode}
+            >
+              {rootMode ? 'root mode active' : "i've hit a root"}
             </button>
           )}
         </div>

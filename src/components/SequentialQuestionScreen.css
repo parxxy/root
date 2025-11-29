@@ -178,6 +178,33 @@
   cursor: not-allowed;
 }
 
+.root-mode-button {
+  margin-top: 24px;
+  padding: 12px 16px;
+  width: 100%;
+  background: #111;
+  color: #fefefe;
+  border: 2px solid #111;
+  border-radius: 12px;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  box-shadow: 6px 6px 0 #000;
+}
+
+.root-mode-button:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 #000;
+  background: #222;
+}
+
+.root-mode-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .continue-button-new {
   padding: 14px 0;
   font-size: 1rem;
