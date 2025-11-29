@@ -1,4 +1,4 @@
-import type { Path, Answer } from '../types';
+import type { Path, Answer, Question } from '../types';
 
 // Decide which backend to call:
 // - In production: your Render proxy
@@ -152,6 +152,86 @@ Respond with the JSON only.`;
       parsed?.root_concern ||
       'There seems to be a deeper wish to understand and trust your own feelings.'
   };
+}
+
+// =====================================================================
+// MULTI-QUESTION GENERATOR (OPTIONAL)
+// =====================================================================
+
+export async function generateQuestions(
+  brainDump: string,
+  path: Path,
+  currentLayer: number,
+  previousAnswers: Answer[]
+): Promise<Question[]> {
+  const qaText = previousAnswers
+    .map((a, idx) => `Q${idx + 1}: ${a.questionText}\nA${idx + 1}: ${a.answer}`)
+    .join('\n\n');
+
+  const prompt = `You generate 2-3 thoughtful, open-ended questions to help someone explore their feelings at a specific "layer" of reflection.
+
+Context:
+- Brain dump: "${brainDump}"
+- Path: "${path.label}" - ${path.description}
+- Current layer (1 = gentle surface, 2 = deeper, 3 = core): ${currentLayer}
+- Previous answers (oldest first):
+${qaText || 'None yet.'}
+
+Requirements for questions:
+- Each question should build from the context and feel specific.
+- Keep them concise (under ~22 words), warm, and curiosity-driven.
+- Do NOT include numbering or markdown.
+
+OUTPUT FORMAT (MUST MATCH EXACTLY):
+Return ONLY valid JSON array, no explanations:
+[
+  {"text": "Question one", "layer": ${currentLayer}},
+  {"text": "Question two", "layer": ${currentLayer}}
+]
+`;
+
+  const content = await callGemini(prompt);
+  let jsonText = content.trim();
+
+  if (jsonText.includes('```json')) {
+    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+  } else if (jsonText.includes('```')) {
+    jsonText = jsonText.split('```')[1].split('```')[0].trim();
+  }
+
+  const parsed = safeJsonParse<any>(jsonText);
+
+  const fallback: Question[] = [
+    {
+      id: `fallback-${currentLayer}-1`,
+      text: 'What feels most alive for you in this moment of the situation?',
+      layer: currentLayer
+    },
+    {
+      id: `fallback-${currentLayer}-2`,
+      text: 'What part of this feels like it matters the most underneath?',
+      layer: currentLayer
+    }
+  ];
+
+  if (!Array.isArray(parsed)) {
+    return fallback;
+  }
+
+  const sanitized: Question[] = parsed
+    .filter(item => item && typeof item.text === 'string')
+    .map((item, idx) => ({
+      id: item.id && typeof item.id === 'string'
+        ? item.id
+        : `ai-${currentLayer}-${idx + 1}`,
+      text: item.text.trim(),
+      layer: item.layer && typeof item.layer === 'number'
+        ? item.layer
+        : currentLayer
+    }))
+    .filter(q => q.text.length > 0);
+
+  return sanitized.length ? sanitized : fallback;
 }
 
 // =====================================================================
