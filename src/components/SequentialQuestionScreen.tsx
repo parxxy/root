@@ -215,27 +215,24 @@ export default function SequentialQuestionScreen({
     <div className="question-screen-new" onClick={focusAnswerInput}>
       {catRain}
       <div className="question-content-wrapper question-fade" key={questionText}>
-        {answers.length > 0 && (
-          <div className="question-actions-row">
-            <button
-              className="question-action-circle"
-              onClick={handlePastQuestion}
-              disabled={!previousQuestionText}
-              aria-label="Past question"
-            >
-              <span className="question-action-icon">←</span>
-            </button>
-            <h2 className="question-text-new">{questionText}</h2>
-            <button
-              className="question-action-circle"
-              onClick={handleRefresh}
-              aria-label="Regenerate question"
-            >
-              <img src={regenIcon} className="question-action-img mirror" alt="" />
-            </button>
-          </div>
-        )}
-        {answers.length === 0 && <h2 className="question-text-new">{questionText}</h2>}
+        <div className="question-actions-row">
+          <button
+            className="question-action-circle"
+            onClick={handlePastQuestion}
+            disabled={!previousQuestionText}
+            aria-label="Past question"
+          >
+            <span className="question-action-icon">←</span>
+          </button>
+          <h2 className="question-text-new">{questionText}</h2>
+          <button
+            className="question-action-circle"
+            onClick={handleRefresh}
+            aria-label="Regenerate question"
+          >
+            <img src={regenIcon} className="question-action-img mirror" alt="" />
+          </button>
+        </div>
         
         <div className="answer-section-new">
           <div className="answer-input-wrapper">
@@ -276,31 +273,29 @@ export default function SequentialQuestionScreen({
             </button>
           )}
           
-          {answers.length > 0 && (
-            <div className="root-done-row">
-              {!isOlivia && (
-                <button
-                  type="button"
-                  className="root-mode-button"
-                  onClick={handleRootHit}
-                  aria-pressed={rootMode}
-                >
-                  {rootMode ? (
-                  <span className="root-mode-label-large">explore something else</span>
-                ) : (
-                  "i've hit a root"
-                )}
-                </button>
-              )}
+          <div className="root-done-row">
+            {!isOlivia && (
               <button
                 type="button"
-                className="done-button-wide"
-                onClick={onDone}
+                className="root-mode-button"
+                onClick={handleRootHit}
+                aria-pressed={rootMode}
               >
-                im done
+                {rootMode ? (
+                <span className="root-mode-label-large">explore something else</span>
+              ) : (
+                "i've hit a root"
+              )}
               </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              className="done-button-wide"
+              onClick={onDone}
+            >
+              im done
+            </button>
+          </div>
         </div>
         
       </div>

@@ -186,14 +186,11 @@ function App() {
             </button>
             <p className="welcome-greeting">hi! its nice to see you.</p>
             <p>
-              root can help you dig deeper to help you uncover how you <em><strong>really feel</strong></em> one question at a time.
+              root can help you dig deeper to help you uncover how you <em><strong>really feel...</strong></em> one question at a time.
             </p>
             <p>
-              if a question isn&apos;t quite right, hit the refresh button to create a new one </p>
-
-            <p>
-              you can visit your past threads by clicking the chat icon &amp; start fresh by going home
-            </p>
+              continue digging until you feel you’ve reached the roots of a feeling, and root will gently help you explore.</p>
+              <p>oh also! if a question isn’t quite right, hit the refresh button to try a new one.</p>
             <p>enjoy :)</p>
             <button className="welcome-action" onClick={dismissWelcome}>
               start exploring
@@ -247,7 +244,7 @@ function App() {
         />
       )}
       <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
-        v5.9
+        v6.0
       </button>
       {showAbout && (
         <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">

@@ -55,7 +55,7 @@
   padding: 0 8px;
   border: none;
   border-radius: 0;
-  font-size: 1rem;
+  font-size: 1.2rem; /* match follow-up question size */
   font-family: var(--font-primary);
   line-height: 48px; /* vertically center text within the 48px input */
   transition: none;
@@ -84,6 +84,7 @@
 .brain-dump-input-new::placeholder {
   color: #666;
   font-family: var(--font-primary);
+  font-size: 1.2rem; /* keep placeholder aligned with question size */
   text-align: center;
 }
 
