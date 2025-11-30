@@ -1,7 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import type { Answer } from '../types';
 import { generateNextQuestion } from '../services/aiService';
 import './SequentialQuestionScreen.css';
+
+const catImages = Object.values(
+  import.meta.glob('../assets/cats/*.{png,jpg,jpeg,gif}', {
+    eager: true,
+    import: 'default'
+  })
+) as string[];
+
+const OLIVIA_TRIGGER = /i\s+am\s+olivia/i;
+
+type CatDrop = {
+  id: number;
+  x: number;
+  size: number;
+  duration: number;
+  spinDirection: 1 | -1;
+  src: string;
+};
 
 interface SequentialQuestionScreenProps {
   brainDump: string;
@@ -25,6 +44,7 @@ export default function SequentialQuestionScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
   const [rootMode, setRootMode] = useState(false);
+  const [catDrops, setCatDrops] = useState<CatDrop[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusAnswerInput = () => {
@@ -71,6 +91,49 @@ export default function SequentialQuestionScreen({
     setIsTouch(touchCapable);
   }, []);
 
+  const isOlivia = OLIVIA_TRIGGER.test(brainDump) || answers.some(a => OLIVIA_TRIGGER.test(a.answer));
+
+  useEffect(() => {
+    if (!isOlivia || catImages.length === 0) {
+      setCatDrops([]);
+      return;
+    }
+
+    const spawnCat = () => {
+      const src = catImages[Math.floor(Math.random() * catImages.length)];
+      const id = Date.now() + Math.random();
+      const duration = 5500 + Math.random() * 2500;
+      const drop: CatDrop = {
+        id,
+        x: Math.random() * 100,
+        size: 60 + Math.random() * 80,
+        duration,
+        spinDirection: Math.random() > 0.5 ? 1 : -1,
+        src
+      };
+      setCatDrops(prev => [...prev, drop]);
+      setTimeout(() => {
+        setCatDrops(prev => prev.filter(c => c.id !== id));
+      }, duration + 400);
+    };
+
+    const interval = setInterval(spawnCat, 650);
+    // Kick off a few instantly
+    for (let i = 0; i < 4; i += 1) spawnCat();
+
+    return () => {
+      clearInterval(interval);
+      setCatDrops([]);
+    };
+  }, [isOlivia]);
+
+  // Olivia mode disables root-mode UX entirely
+  useEffect(() => {
+    if (isOlivia) {
+      setRootMode(false);
+    }
+  }, [isOlivia]);
+
   const handleRefresh = async () => {
     setAnswer('');
     setCurrentQuestion('');
@@ -101,10 +164,30 @@ export default function SequentialQuestionScreen({
     setIsSubmitting(false);
   };
 
+  const catRain = isOlivia ? (
+    <div className="cat-rain-layer" aria-hidden>
+      {catDrops.map(cat => (
+        <img
+          key={cat.id}
+          src={cat.src}
+          className="cat-rain"
+          style={{
+            left: `${cat.x}%`,
+            width: `${cat.size}px`,
+            '--fall-duration': `${cat.duration}ms`,
+            '--spin-direction': cat.spinDirection
+          } as CSSProperties}
+          alt=""
+        />
+      ))}
+    </div>
+  ) : null;
+
 
   if (isLoading) {
     return (
       <div className="question-screen-new" onClick={focusAnswerInput}>
+        {catRain}
         <div className="nav-icons-top">
           <button className="nav-icon" onClick={onHome} title="Home">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -136,6 +219,7 @@ export default function SequentialQuestionScreen({
 
   return (
     <div className="question-screen-new" onClick={focusAnswerInput}>
+      {catRain}
       <div className="nav-icons-top">
         <button className="nav-icon" onClick={onHome} title="Home">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -199,7 +283,7 @@ export default function SequentialQuestionScreen({
             </button>
           )}
           
-          {answers.length >= 3 && (
+          {answers.length >= 3 && !isOlivia && (
             <button
               type="button"
               className="root-mode-button"

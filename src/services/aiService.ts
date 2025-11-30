@@ -246,34 +246,30 @@ function isOliviaMode(brainDump: string, previousAnswers: Answer[]): boolean {
 }
 
 async function generateOliviaCompliment(): Promise<string> {
-  const prompt = `You are writing a sweet, simple compliment to a person named Olivia.
+  const compliments = [
+    'you are so sexy!',
+    'so so fashionable!',
+    'prettiest girl i know',
+    'you are so smart :)',
+    'PLUG!',
+    'i wanna kiss u',
+    'i hope you are having a good day today!',
+    'oliver says hi',
+    'good luck today! you’re gonna do great >;)',
+    'i miss uuu',
+    'your pikmin miss you…',
+    'i hope your beer isn’t full of burps :0',
+    'meowww',
+    'arwora boueralwiss',
+    'mwah <3 (wet smooch)',
+    'knock knock!',
+    'you are so talented!!!',
+    'i love your art',
+    'moo0OooOooo0oooo'
+  ];
 
-TASK:
-Write exactly ONE sentence that compliments Olivia.
-Each time you are called, you must create a NEW compliment and avoid repeating the same wording you have used before.
-
-Content requirements:
-- Focus on how pretty, smart, talented, creative, fashionable, funny, and cute she is.
-- In each sentence, naturally highlight 2–3 of these qualities.
-- Use warm, genuine, human-sounding language.
-- Keep it short and simple, not poetic or over the top.
-
-OUTPUT:
-Return ONLY the compliment sentence, with no quotes, no extra text, no markdown.`;
-
-  const content = await callGemini(prompt);
-
-  let compliment = content.trim();
-  // Strip quotes if model adds them
-  compliment = compliment.replace(/^"|"$/g, '');
-  const oneSentence = toSingleSentence(compliment);
-
-  if (!oneSentence) {
-    // Very simple fallback just in case the model fails
-    return 'You seem like someone who is really pretty, naturally smart, and effortlessly cute.';
-  }
-
-  return oneSentence;
+  const pick = compliments[Math.floor(Math.random() * compliments.length)] || compliments[0];
+  return pick;
 }
 
 // =====================================================================
