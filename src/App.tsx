@@ -144,10 +144,6 @@ function App() {
     setScreen('brainDump');
   };
 
-  const handleViewThreads = () => {
-    setScreen('pastThreads');
-  };
-
   const handleViewThread = (session: Session) => {
     setViewingSession(session);
     setScreen('threadView');
@@ -220,7 +216,6 @@ function App() {
         <BrainDumpScreen 
           onStartExploring={handleStartExploring}
           initialText={brainDump}
-          onViewThreads={handleViewThreads}
         />
       )}
       {screen === 'sequentialQuestions' && (
@@ -229,8 +224,6 @@ function App() {
           answers={answers}
           onAnswerSubmitted={handleAnswerSubmitted}
           onDone={handleQuestionsDone}
-          onHome={handleGoBrainDump}
-          onViewThreads={handleViewThreads}
         />
       )}
       {screen === 'pastThreads' && (

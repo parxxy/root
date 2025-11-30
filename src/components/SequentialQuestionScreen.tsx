@@ -29,17 +29,13 @@ interface SequentialQuestionScreenProps {
   answers: Answer[];
   onAnswerSubmitted: (questionId: string, questionText: string, answer: string) => void;
   onDone: () => void;
-  onHome: () => void;
-  onViewThreads: () => void;
 }
 
 export default function SequentialQuestionScreen({
   brainDump,
   answers,
   onAnswerSubmitted,
-  onDone,
-  onHome,
-  onViewThreads
+  onDone
 }: SequentialQuestionScreenProps) {
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [answer, setAnswer] = useState('');

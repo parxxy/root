@@ -1,18 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { getSessions } from '../utils/storage';
 import './BrainDumpScreen.css';
 
 interface BrainDumpScreenProps {
   onStartExploring: (dump: string) => void;
   initialText?: string;
-  onViewThreads?: () => void;
 }
 
-export default function BrainDumpScreen({ onStartExploring, initialText = '', onViewThreads }: BrainDumpScreenProps) {
+export default function BrainDumpScreen({ onStartExploring, initialText = '' }: BrainDumpScreenProps) {
   const [brainDump, setBrainDump] = useState(initialText);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [hasSessions, setHasSessions] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
 
   const focusInput = () => {
@@ -36,7 +33,6 @@ export default function BrainDumpScreen({ onStartExploring, initialText = '', on
   }, [initialText]);
 
   useEffect(() => {
-    setHasSessions(getSessions().length > 0);
     const touchCapable = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
     setIsTouch(touchCapable);
   }, []);
