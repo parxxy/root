@@ -44,7 +44,7 @@ export default function SequentialQuestionScreen({
   const [isTouch, setIsTouch] = useState(false);
   const [rootMode, setRootMode] = useState(false);
   const [catDrops, setCatDrops] = useState<CatDrop[]>([]);
-  const [previousQuestionText, setPreviousQuestionText] = useState('');
+  const [questionHistory, setQuestionHistory] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusAnswerInput = () => {
@@ -62,7 +62,7 @@ export default function SequentialQuestionScreen({
     setIsLoading(true);
     try {
       if (currentQuestion) {
-        setPreviousQuestionText(currentQuestion);
+        setQuestionHistory(prev => [...prev, currentQuestion]);
       }
       const question = await generateNextQuestion(
         brainDump,
@@ -139,7 +139,9 @@ export default function SequentialQuestionScreen({
   }, [isOlivia]);
 
   const handleRefresh = async () => {
-    setPreviousQuestionText(currentQuestion || previousQuestionText);
+    if (currentQuestion) {
+      setQuestionHistory(prev => [...prev, currentQuestion]);
+    }
     setAnswer('');
     setCurrentQuestion('');
     setIsLoading(true);
@@ -161,8 +163,10 @@ export default function SequentialQuestionScreen({
   };
 
   const handlePastQuestion = () => {
-    if (!previousQuestionText) return;
-    setCurrentQuestion(previousQuestionText);
+    if (!questionHistory.length) return;
+    const last = questionHistory[questionHistory.length - 1];
+    setQuestionHistory(prev => prev.slice(0, -1));
+    setCurrentQuestion(last);
   };
 
   const handleSubmit = async () => {
@@ -219,7 +223,7 @@ export default function SequentialQuestionScreen({
           <button
             className="question-action-circle"
             onClick={handlePastQuestion}
-            disabled={!previousQuestionText}
+            disabled={!questionHistory.length}
             aria-label="Past question"
           >
             <span className="question-action-icon">←</span>
@@ -282,7 +286,7 @@ export default function SequentialQuestionScreen({
                 aria-pressed={rootMode}
               >
                 {rootMode ? (
-                <span className="root-mode-label-large">explore something else</span>
+                <span className="root-mode-label-large">explore elsewhere</span>
               ) : (
                 "i've hit a root"
               )}
