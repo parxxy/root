@@ -99,6 +99,60 @@
   flex: 1;
 }
 
+.question-actions-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.question-action-circle {
+  position: relative;
+  background: #f9f9f9;
+  border: 2px solid #666;
+  color: #333;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-primary);
+}
+
+.question-action-circle:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  background: #fff;
+}
+
+.question-action-circle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.question-action-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #1a1a1a;
+}
+
+.question-action-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+.question-action-img.mirror {
+  transform: scaleX(-1);
+}
+
 .question-fade {
   opacity: 0;
   animation: fadeInUp 0.4s ease forwards;
@@ -200,11 +254,7 @@
   font-family: var(--font-primary);
   text-transform: lowercase;
   width: auto;
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .continue-link-new:hover:not(:disabled) {
@@ -220,7 +270,7 @@
 .root-mode-button {
   margin-top: 24px;
   padding: 12px 16px;
-  width: 100%;
+  min-width: 180px;
   background: #111;
   color: #fefefe;
   border: 2px solid #111;
@@ -231,6 +281,12 @@
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
   box-shadow: 6px 6px 0 #000;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .root-mode-button:hover:not(:disabled) {
@@ -242,6 +298,52 @@
 .root-mode-button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.root-mode-label-small {
+  font-size: 0.8rem;
+  color: #f0f0f0;
+}
+
+.root-mode-label-large {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #fefefe;
+}
+
+.done-button-wide {
+  margin-top: 24px;
+  padding: 12px 16px;
+  min-width: 180px;
+  background: #fefefe;
+  color: #111;
+  border: 2px solid #444;
+  border-radius: 12px;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  box-shadow: 4px 4px 0 #000;
+}
+
+.done-button-wide:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #000;
+  background: #fff;
+}
+
+.done-button-wide:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.root-done-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0;
 }
 
 .continue-button-new {

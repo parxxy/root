@@ -11,6 +11,8 @@ const catImages = Object.values(
   })
 ) as string[];
 
+const regenIcon = new URL('../assets/free-refresh-icon-3104-thumb.png', import.meta.url).href;
+
 const OLIVIA_TRIGGER = /i\s+am\s+olivia/i;
 
 type CatDrop = {
@@ -35,6 +37,7 @@ export default function SequentialQuestionScreen({
   brainDump,
   answers,
   onAnswerSubmitted,
+  onDone,
   onHome,
   onViewThreads
 }: SequentialQuestionScreenProps) {
@@ -45,6 +48,7 @@ export default function SequentialQuestionScreen({
   const [isTouch, setIsTouch] = useState(false);
   const [rootMode, setRootMode] = useState(false);
   const [catDrops, setCatDrops] = useState<CatDrop[]>([]);
+  const [previousQuestionText, setPreviousQuestionText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusAnswerInput = () => {
@@ -58,13 +62,17 @@ export default function SequentialQuestionScreen({
     input.setSelectionRange(input.value.length, input.value.length);
   };
 
-  const loadNextQuestion = async (forceRootMode?: boolean) => {
+  const loadNextQuestion = async (forceRootMode?: boolean, redirectFromRoot?: boolean) => {
     setIsLoading(true);
     try {
+      if (currentQuestion) {
+        setPreviousQuestionText(currentQuestion);
+      }
       const question = await generateNextQuestion(
         brainDump,
         answers,
-        forceRootMode ?? rootMode
+        forceRootMode ?? rootMode,
+        redirectFromRoot
       );
       const trimmed = question.trim();
       setCurrentQuestion(trimmed.length > 0 ? trimmed : 'What would you like to explore deeper?');
@@ -135,6 +143,7 @@ export default function SequentialQuestionScreen({
   }, [isOlivia]);
 
   const handleRefresh = async () => {
+    setPreviousQuestionText(currentQuestion || previousQuestionText);
     setAnswer('');
     setCurrentQuestion('');
     setIsLoading(true);
@@ -146,9 +155,18 @@ export default function SequentialQuestionScreen({
   };
 
   const handleRootHit = async () => {
-    if (rootMode) return;
-    setRootMode(true);
-    await loadNextQuestion(true);
+    if (!rootMode) {
+      setRootMode(true);
+      await loadNextQuestion(true);
+    } else {
+      setRootMode(false);
+      await loadNextQuestion(false, true);
+    }
+  };
+
+  const handlePastQuestion = () => {
+    if (!previousQuestionText) return;
+    setCurrentQuestion(previousQuestionText);
   };
 
   const handleSubmit = async () => {
@@ -188,26 +206,6 @@ export default function SequentialQuestionScreen({
     return (
       <div className="question-screen-new" onClick={focusAnswerInput}>
         {catRain}
-        <div className="nav-icons-top">
-          <button className="nav-icon" onClick={onHome} title="Home">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-          </button>
-          <button className="nav-icon" onClick={handleRefresh} title="New Question">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-          </button>
-          <button className="nav-icon" onClick={onViewThreads} title="Past Threads">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </button>
-        </div>
         <div className="question-content-wrapper question-fade" key="loading">
           <div className="loading-question">thinking...</div>
         </div>
@@ -220,29 +218,28 @@ export default function SequentialQuestionScreen({
   return (
     <div className="question-screen-new" onClick={focusAnswerInput}>
       {catRain}
-      <div className="nav-icons-top">
-        <button className="nav-icon" onClick={onHome} title="Home">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-        </button>
-        <button className="nav-icon" onClick={handleRefresh} title="New Question">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-        </button>
-        <button className="nav-icon" onClick={onViewThreads} title="Past Threads">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button>
-      </div>
-      
       <div className="question-content-wrapper question-fade" key={questionText}>
-        <h2 className="question-text-new">{questionText}</h2>
+        {answers.length > 0 && (
+          <div className="question-actions-row">
+            <button
+              className="question-action-circle"
+              onClick={handlePastQuestion}
+              disabled={!previousQuestionText}
+              aria-label="Past question"
+            >
+              <span className="question-action-icon">←</span>
+            </button>
+            <h2 className="question-text-new">{questionText}</h2>
+            <button
+              className="question-action-circle"
+              onClick={handleRefresh}
+              aria-label="Regenerate question"
+            >
+              <img src={regenIcon} className="question-action-img mirror" alt="" />
+            </button>
+          </div>
+        )}
+        {answers.length === 0 && <h2 className="question-text-new">{questionText}</h2>}
         
         <div className="answer-section-new">
           <div className="answer-input-wrapper">
@@ -283,16 +280,30 @@ export default function SequentialQuestionScreen({
             </button>
           )}
           
-          {answers.length >= 3 && !isOlivia && (
-            <button
-              type="button"
-              className="root-mode-button"
-              onClick={handleRootHit}
-              disabled={rootMode}
-              aria-pressed={rootMode}
-            >
-              {rootMode ? 'root mode active' : "i've hit a root"}
-            </button>
+          {answers.length > 0 && (
+            <div className="root-done-row">
+              {!isOlivia && (
+                <button
+                  type="button"
+                  className="root-mode-button"
+                  onClick={handleRootHit}
+                  aria-pressed={rootMode}
+                >
+                  {rootMode ? (
+                  <span className="root-mode-label-large">explore something else</span>
+                ) : (
+                  "i've hit a root"
+                )}
+                </button>
+              )}
+              <button
+                type="button"
+                className="done-button-wide"
+                onClick={onDone}
+              >
+                im done
+              </button>
+            </div>
           )}
         </div>
         
