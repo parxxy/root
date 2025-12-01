@@ -12,17 +12,30 @@ const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
 
 // --- TEXT HELPERS ---
 
-// Keep text to a single sentence
+// Keep text to a single sentence, preferring the actual question if there are multiple sentences.
 function toSingleSentence(text: string): string {
   if (!text) return '';
+
   const collapsed = text
     .replace(/\s+/g, ' ')
     .replace(/\(.+?\)/g, '') // remove parentheticals for simpler, uninterrupted sentences
     .trim();
 
   const withoutWhenYouSay = collapsed.replace(/^when you say[, ]*/i, '');
-  const match = withoutWhenYouSay.match(/[^.?!]+[.?!]?/);
-  return match ? match[0].trim() : withoutWhenYouSay;
+
+  // Split into sentence-like chunks
+  const matches = withoutWhenYouSay.match(/[^.?!]+[.?!]?/g);
+
+  if (!matches) {
+    return withoutWhenYouSay;
+  }
+
+  // Prefer a sentence that already looks like a question (contains a ?)
+  const questionLike = matches.find(s => /[?？]/.test(s));
+
+  const candidate = (questionLike || matches[matches.length - 1]).trim();
+
+  return candidate;
 }
 
 function normalizeQuestion(raw: string): string {
@@ -221,13 +234,15 @@ Return ONLY valid JSON array, no explanations:
   const sanitized: Question[] = parsed
     .filter(item => item && typeof item.text === 'string')
     .map((item, idx) => ({
-      id: item.id && typeof item.id === 'string'
-        ? item.id
-        : `ai-${currentLayer}-${idx + 1}`,
+      id:
+        item.id && typeof item.id === 'string'
+          ? item.id
+          : `ai-${currentLayer}-${idx + 1}`,
       text: item.text.trim(),
-      layer: item.layer && typeof item.layer === 'number'
-        ? item.layer
-        : currentLayer
+      layer:
+        item.layer && typeof item.layer === 'number'
+          ? item.layer
+          : currentLayer
     }))
     .filter(q => q.text.length > 0);
 
@@ -268,7 +283,9 @@ async function generateOliviaCompliment(): Promise<string> {
     'moo0OooOooo0oooo'
   ];
 
-  const pick = compliments[Math.floor(Math.random() * compliments.length)] || compliments[0];
+  const pick =
+    compliments[Math.floor(Math.random() * compliments.length)] ||
+    compliments[0];
   return pick;
 }
 
@@ -371,7 +388,6 @@ GENERAL RULES FOR ALL QUESTIONS:
 - Never ask generic therapy clichés like "How does that make you feel?" on their own.
 - Avoid shallow reformulations like "What does that feel like?" unless it is anchored to something very specific they said.
 - Every question must be grounded in the FULL context: the brain dump AND the whole history of answers, not just the last one.
-- Use their own words when possible (phrases, names, images they used).
 - Do not mirror or restate their last line back at them (e.g., if they say "I am hurt," do NOT reply "You are really hurt..." before your question).
 - Do NOT repeat, paraphrase, or restate what the user just said. Do not begin your responses by echoing their words. Immediately ask the next question.
 - Never give advice, solutions, or reassurance.
