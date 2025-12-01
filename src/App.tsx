@@ -244,7 +244,7 @@ function App() {
         />
       )}
       <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
-        v6.1
+        v6.2
       </button>
       {showAbout && (
         <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">
