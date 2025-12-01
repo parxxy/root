@@ -12,35 +12,41 @@ const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
 
 // --- TEXT HELPERS ---
 
-// Keep text to a single sentence, preferring the actual question if there are multiple sentences.
+// Simple sentence extractor used for things like chat titles (not for questions).
 function toSingleSentence(text: string): string {
   if (!text) return '';
-
   const collapsed = text
     .replace(/\s+/g, ' ')
     .replace(/\(.+?\)/g, '') // remove parentheticals for simpler, uninterrupted sentences
     .trim();
 
-  const withoutWhenYouSay = collapsed.replace(/^when you say[, ]*/i, '');
-
-  // Split into sentence-like chunks
-  const matches = withoutWhenYouSay.match(/[^.?!]+[.?!]?/g);
-
-  if (!matches) {
-    return withoutWhenYouSay;
-  }
-
-  // Prefer a sentence that already looks like a question (contains a ?)
-  const questionLike = matches.find(s => /[?？]/.test(s));
-
-  const candidate = (questionLike || matches[matches.length - 1]).trim();
-
-  return candidate;
+  const match = collapsed.match(/[^.?!]+[.?!]?/);
+  return match ? match[0].trim() : collapsed;
 }
 
+// Clean up a model-generated question for the user.
+// Trusts the model to mostly follow "one sentence" and just removes obvious mirroring.
 function normalizeQuestion(raw: string): string {
-  const sentence = toSingleSentence(raw);
+  if (!raw) return 'What would you like to explore deeper?';
+
+  // Collapse whitespace and strip surrounding quotes
+  let sentence = raw
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^"|"$/g, '');
+
+  // Strip “When you say …,” style echo at the front
+  // e.g. "When you say you're tired, what feels..." -> "what feels..."
+  sentence = sentence.replace(/^when you say[^,]*,\s*/i, '');
+
+  // Strip “you’re X,” / “you are X,” echo at the front
+  // e.g. "you're tired, what feels..." -> "what feels..."
+  sentence = sentence.replace(/^you(\'?re| are)\s[^,]*,\s*/i, '');
+
+  sentence = sentence.trim();
+
   if (!sentence) return 'What would you like to explore deeper?';
+
   // Ensure it ends with a question mark
   return /[?？]$/.test(sentence) ? sentence : `${sentence}?`;
 }
@@ -320,7 +326,7 @@ export async function generateNextQuestion(
         ? 'UNDERSTANDING_MODE'
         : 'DEPTH_MODE';
 
-  // Debug helper: let the user press "q" to see which mode the AI is in
+  // Debug helper: let the user type "q" to see which mode the AI is in
   const lastAnswer = previousAnswers[previousAnswers.length - 1];
   if (lastAnswer && lastAnswer.answer.trim().toLowerCase() === 'q') {
     return `MODE: ${mode}`;
@@ -389,7 +395,7 @@ GENERAL RULES FOR ALL QUESTIONS:
 - Avoid shallow reformulations like "What does that feel like?" unless it is anchored to something very specific they said.
 - Every question must be grounded in the FULL context: the brain dump AND the whole history of answers, not just the last one.
 - Do not mirror or restate their last line back at them (e.g., if they say "I am hurt," do NOT reply "You are really hurt..." before your question).
-- Do NOT repeat, paraphrase, or restate what the user just said. Do not begin your responses by echoing their words. Immediately ask the next question.
+- Do NOT repeat, paraphrase, or restate what the user just said. Do not begin your responses by echoing their words. Do NOT begin with phrases like "When you say...", "You're feeling...", "You said...", or "It sounds like you...". Immediately ask the next question.
 - Never give advice, solutions, or reassurance.
 - Do not summarize or interpret; just ask.
 
