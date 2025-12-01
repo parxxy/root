@@ -244,18 +244,37 @@ function App() {
         />
       )}
       <button className="app-version" onClick={() => setShowAbout(true)} aria-label="About Root">
+        <svg
+          aria-hidden="true"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ marginRight: '6px', verticalAlign: 'middle', marginTop: '-2px', display: 'inline-block' }}
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="8"></line>
+          <line x1="12" y1="12" x2="12" y2="16"></line>
+        </svg>
         v6.3
       </button>
       {showAbout && (
-        <div className="about-overlay" role="dialog" aria-modal="true" aria-label="About Root">
-          <div className="about-dialog">
-            <div className="about-header">
-              <h2>About Root</h2>
-              <button className="about-close" onClick={() => setShowAbout(false)} aria-label="Close about">×</button>
-            </div>
-            <p>Root helps you dig to the real reason you’re feeling the way you do.<br />There’s always something deeper…and Root helps you find it.</p>
-            <p className="about-note">No user info is saved.</p>
-            <p className="about-footer">Made by Parker.</p>
+        <div className="welcome-overlay" role="dialog" aria-modal="true" aria-label="About Root">
+          <div className="welcome-dialog">
+            <button
+              className="welcome-close"
+              onClick={() => setShowAbout(false)}
+              aria-label="Close about"
+            >
+              ×
+            </button>
+            <p style={{ marginTop: 0, marginBottom: '8px' }}>made by parker.</p>
+            <p style={{ margin: 0 }}>(2025)</p>
+            <p style={{ marginTop: '12px', marginBottom: 0 }}>no user data is saved</p>
           </div>
         </div>
       )}
