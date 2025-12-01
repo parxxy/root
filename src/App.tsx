@@ -260,7 +260,7 @@ function App() {
           <line x1="12" y1="8" x2="12" y2="8"></line>
           <line x1="12" y1="12" x2="12" y2="16"></line>
         </svg>
-        v6.3
+        v6.4
       </button>
       {showAbout && (
         <div className="welcome-overlay" role="dialog" aria-modal="true" aria-label="About Root">
