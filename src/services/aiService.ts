@@ -1,14 +1,8 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Path, Answer, Question } from '../types';
 
-// Decide which backend to call:
-// - In production: your Render proxy
-// - In local dev (optional): your local server.js on port 3001
-const GEMINI_BASE =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3001'
-    : 'https://digtotheroot.onrender.com';
-
-const GEMINI_ENDPOINT = `${GEMINI_BASE}/api/gemini`;
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY as string);
+const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 // --- TEXT HELPERS ---
 
@@ -62,49 +56,26 @@ function safeJsonParse<T = any>(str: string): T | null {
 // --- MODEL CALL ---
 
 async function callGemini(prompt: string): Promise<string> {
-  const res = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ prompt })
-  });
-
-  if (!res.ok) {
-    let msg = '<no body>';
-    try {
-      msg = await res.text();
-    } catch {
-      // ignore
-    }
-    throw new Error(`Gemini proxy error (${res.status}): ${msg}`);
-  }
-
-  try {
-    const data = await res.json().catch(() => null);
-    return (data?.text as string | undefined)?.trim() ?? '';
-  } catch {
-    return '';
-  }
+  const result = await geminiModel.generateContent(prompt);
+  return result.response.text().trim();
 }
 
-// --- API KEY STUBS (CLIENT NEVER HOLDS KEY) ---
+// --- API KEY HELPERS ---
 
 export function hasApiKey(): boolean {
-  // Client never holds the key anymore
-  return false;
+  return !!import.meta.env.VITE_GEMINI_API_KEY;
 }
 
 export function getApiKey(): string | null {
-  return null;
+  return (import.meta.env.VITE_GEMINI_API_KEY as string) || null;
 }
 
 export function setApiKey(_key: string): void {
-  // no-op; keys are server-side only
+  // no-op; key is set via VITE_GEMINI_API_KEY env var at build time
 }
 
 export function clearApiKey(): void {
-  // no-op; keys are server-side only
+  // no-op; key is set via VITE_GEMINI_API_KEY env var at build time
 }
 
 // =====================================================================
