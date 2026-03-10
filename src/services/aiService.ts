@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Path, Answer, Question } from '../types';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY as string);
-const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
 // --- TEXT HELPERS ---
 
